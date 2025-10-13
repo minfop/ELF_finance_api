@@ -1,6 +1,96 @@
 const LoanModel = require('../models/loanModel');
+const LoanTypeModel = require('../models/loanTypeModel');
 
 class LoanService {
+  /**
+   * Calculate end date based on loan type
+   * @param {number} loanTypeId - The loan type ID
+   * @param {number} tenantId - The tenant ID
+   * @param {string|Date} startDate - The start date
+   * @returns {Promise<string>} - The calculated end date as ISO string
+   */
+  async calculateEndDate(loanTypeId, tenantId, startDate) {
+    try {
+      // Fetch loan type information
+      const loanType = await LoanTypeModel.findById(loanTypeId);
+      
+      if (!loanType) {
+        throw new Error('Loan type not found');
+      }
+      
+      // Verify tenant ID matches
+      if (loanType.tenantId !== tenantId) {
+        throw new Error('Loan type does not belong to this tenant');
+      }
+      
+      // Parse start date
+      const start = new Date(startDate);
+      
+      if (isNaN(start.getTime())) {
+        throw new Error('Invalid start date');
+      }
+      
+      // Calculate end date based on collection type
+      let endDate;
+      const collectionType = loanType.collectionType.toUpperCase();
+      const collectionPeriod = parseInt(loanType.collectionPeriod);
+      
+      if (collectionType === 'DAILY') {
+        // Add days
+        endDate = new Date(start.getTime() + collectionPeriod * 24 * 60 * 60 * 1000);
+      } else if (collectionType === 'WEEKLY') {
+        // Add weeks (7 days per week)
+        endDate = new Date(start.getTime() + collectionPeriod * 7 * 24 * 60 * 60 * 1000);
+      } else if (collectionType === 'MONTHLY') {
+        // Add months
+        endDate = new Date(start);
+        endDate.setMonth(endDate.getMonth() + collectionPeriod);
+      } else {
+        throw new Error(`Unsupported collection type: ${collectionType}`);
+      }
+      
+      // Return as ISO date string
+      return endDate.toISOString().split('T')[0]; // Returns YYYY-MM-DD format
+    } catch (error) {
+      throw new Error(`Error calculating end date: ${error.message}`);
+    }
+  }
+
+  /**
+   * Calculate total installment based on loan type
+   * @param {number} loanTypeId - The loan type ID
+   * @param {number} tenantId - The tenant ID
+   * @returns {Promise<int>} - The calculated total installment
+   */
+  async calculateTotalInstallement(loanTypeId, tenantId) {
+    try {
+      // Fetch loan type information
+      const loanType = await LoanTypeModel.findById(loanTypeId);
+      
+      if (!loanType) {
+        throw new Error('Loan type not found');
+      }
+      
+      // Verify tenant ID matches
+      if (loanType.tenantId !== tenantId) {
+        throw new Error('Loan type does not belong to this tenant');
+      }
+      
+      // Parse start date
+      const start = new Date(startDate);
+      
+      if (isNaN(start.getTime())) {
+        throw new Error('Invalid start date');
+      }
+
+      const collectionPeriod = parseInt(loanType.collectionPeriod);
+
+      return collectionPeriod; 
+    } catch (error) {
+      throw new Error(`Error calculating total installment: ${error.message}`);
+    }
+  }
+
   // Get all loans (with tenant filtering)
   async getAllLoans(userTenantId = null, userRole = null) {
     try {
@@ -162,12 +252,12 @@ class LoanService {
         };
       }
 
-      if (!loanData.disbursedAmount) {
-        return {
-          success: false,
-          message: 'Disbursed amount is required'
-        };
-      }
+      // if (!loanData.disbursedAmount) {
+      //   return {
+      //     success: false,
+      //     message: 'Disbursed amount is required'
+      //   };
+      // }
 
       if (!loanData.loanTypeId) {
         return {
@@ -176,12 +266,19 @@ class LoanService {
         };
       }
 
-      if (!loanData.totalDays) {
+      if (!loanData.lineTypeId) {
         return {
           success: false,
-          message: 'Total days is required'
+          message: 'Line type ID is required'
         };
       }
+
+      // if (!loanData.totalInstallment) {
+      //   return {
+      //     success: false,
+      //     message: 'Total installment is required'
+      //   };
+      // }
 
       if (!loanData.startDate) {
         return {
@@ -190,20 +287,47 @@ class LoanService {
         };
       }
 
-      if (!loanData.endDate) {
-        return {
-          success: false,
-          message: 'End date is required'
-        };
-      }
+      // if (!loanData.endDate) {
+      //   return {
+      //     success: false,
+      //     message: 'End date is required'
+      //   };
+      // }
 
-      if (!loanData.installmentAmount) {
-        return {
-          success: false,
-          message: 'Installment amount is required'
-        };
+      // if (!loanData.installmentAmount) {
+      //   return {
+      //     success: false,
+      //     message: 'Installment amount is required'
+      //   };
+      // }
+      
+      // Calculate end date based on loan type
+      const calculatedEndDate = await this.calculateEndDate(
+        loanData.loanTypeId,
+        loanData.tenantId,
+        loanData.startDate
+      );
+      loanData.endDate = calculatedEndDate;
+      
+      // Fetch loan type to get initialDeduction percentage
+      const loanType = await LoanTypeModel.findById(loanData.loanTypeId);
+      // Verify tenant ID matches
+      if (loanType.tenantId !== loanData.tenantId) {
+        throw new Error('Loan type does not belong to this tenant');
       }
-
+      const initialDeductionPercent = parseInt(loanType.initialDeduction);
+      const interestPercent = parseInt(loanType.interest);
+      const collectionPeriod = parseInt(loanType.collectionPeriod);
+      const interestAmount = Math.round((parseFloat(loanData.principal) * interestPercent) / 100);
+      
+      // Calculate initialDeduction amount based on percentage
+      loanData.initialDeduction = Math.round((parseFloat(loanData.principal) * initialDeductionPercent) / 100);
+      
+      loanData.installmentAmount = parseFloat(loanData.principal / collectionPeriod).toFixed(2); // Simple equal installment calculation
+      loanData.totalInstallment = collectionPeriod;
+      loanData.interest = interestAmount;
+      loanData.disbursedAmount = parseFloat(loanData.principal) - parseFloat(interestAmount); // Total disbursed amount
+      
       const loanId = await LoanModel.create(loanData);
       const newLoan = await LoanModel.findById(loanId);
 
@@ -240,7 +364,36 @@ class LoanService {
       // Preserve the original tenantId and customerId (prevent changes)
       loanData.tenantId = existingLoan.tenantId;
       loanData.customerId = existingLoan.customerId;
-
+      
+      // Calculate end date based on loan type if relevant fields are provided
+      if (loanData.loanTypeId && loanData.startDate) {
+        const calculatedEndDate = await this.calculateEndDate(
+          loanData.loanTypeId,
+          loanData.tenantId,
+          loanData.startDate
+        );
+        loanData.endDate = calculatedEndDate;
+      }
+      
+      // Fetch loan type to get initialDeduction percentage
+      const loanType = await LoanTypeModel.findById(loanData.loanTypeId);
+      
+      // Verify tenant ID matches
+      if (loanType.tenantId !== loanData.tenantId) {
+        throw new Error('Loan type does not belong to this tenant');
+      }
+      const initialDeductionPercent = parseInt(loanType.initialDeduction);
+      const interestPercent = parseInt(loanType.interest);
+      const collectionPeriod = parseInt(loanType.collectionPeriod);
+      const interestAmount = Math.round((parseFloat(loanData.principal) * interestPercent) / 100);
+      
+      // Calculate initialDeduction amount based on percentage
+      loanData.initialDeduction = Math.round((parseFloat(loanData.principal) * initialDeductionPercent) / 100);
+      loanData.interest = interestAmount;
+      loanData.installmentAmount = parseFloat(loanData.principal / collectionPeriod).toFixed(2); // Simple equal installment calculation
+      loanData.totalInstallment = collectionPeriod;
+      loanData.disbursedAmount = parseFloat(loanData.principal) - parseFloat(interestAmount); // Total disbursed amount
+      
       const affectedRows = await LoanModel.update(id, loanData);
       
       if (affectedRows === 0) {

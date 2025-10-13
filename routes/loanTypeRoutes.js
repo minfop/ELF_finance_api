@@ -10,16 +10,15 @@ const { authenticateToken, checkRoleByName } = require('../middleware/authMiddle
  *     LoanType:
  *       type: object
  *       required:
- *         - tenantId
  *         - collectionType
  *         - collectionPeriod
+ *         - interest
+ *         - initialDeduction
+ *         - nilCalculation
  *       properties:
  *         id:
  *           type: integer
  *           description: Loan type ID
- *         tenantId:
- *           type: integer
- *           description: Tenant ID
  *         collectionType:
  *           type: string
  *           description: Type of collection (e.g., Daily, Weekly, Monthly)
@@ -28,6 +27,18 @@ const { authenticateToken, checkRoleByName } = require('../middleware/authMiddle
  *           type: integer
  *           description: Collection period in days
  *           example: 1
+ *         interest:
+ *           type: integer
+ *           description: Interest percentage
+ *           example: 10
+ *         initialDeduction:
+ *           type: integer
+ *           description: Initial deduction percentage
+ *           example: 5
+ *         nilCalculation:
+ *           type: integer
+ *           description: NIL calculation value
+ *           example: 2
  *         isActive:
  *           type: boolean
  *           description: Active status
@@ -43,6 +54,9 @@ const { authenticateToken, checkRoleByName } = require('../middleware/authMiddle
  *         tenantId: 1
  *         collectionType: "Daily"
  *         collectionPeriod: 1
+ *         interest: 10
+ *         initialDeduction: 5
+ *         nilCalculation: 2
  *         isActive: true
  *         createdAt: "2025-01-08"
  *         tenantName: "ABC Company"
@@ -170,10 +184,10 @@ router.get('/:id',
  *             required:
  *               - collectionType
  *               - collectionPeriod
+ *               - interest
+ *               - initialDeduction
+ *               - nilCalculation
  *             properties:
- *               tenantId:
- *                 type: integer
- *                 description: Tenant ID (optional, defaults to user's tenant)
  *               collectionType:
  *                 type: string
  *                 description: Type of collection
@@ -182,6 +196,18 @@ router.get('/:id',
  *                 type: integer
  *                 description: Collection period in days
  *                 example: 1
+ *               interest:
+ *                 type: integer
+ *                 description: Interest percentage
+ *                 example: 10
+ *               initialDeduction:
+ *                 type: integer
+ *                 description: Initial deduction percentage
+ *                 example: 5
+ *               nilCalculation:
+ *                 type: integer
+ *                 description: NIL calculation value
+ *                 example: 2
  *     responses:
  *       201:
  *         description: Loan type created
@@ -219,6 +245,12 @@ router.post('/',
  *               collectionType:
  *                 type: string
  *               collectionPeriod:
+ *                 type: integer
+ *               interest:
+ *                 type: integer
+ *               initialDeduction:
+ *                 type: integer
+ *               nilCalculation:
  *                 type: integer
  *               isActive:
  *                 type: boolean

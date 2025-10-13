@@ -34,7 +34,8 @@ const authenticateToken = (req, res, next) => {
       roleId: result.decoded.roleId,
       roleName: result.decoded.roleName || null,
       name: result.decoded.name,
-      email: result.decoded.email
+      email: result.decoded.email,
+      phoneNumber: result.decoded.phoneNumber
     };
 
     next();
@@ -148,7 +149,8 @@ const optionalAuth = (req, res, next) => {
         roleId: result.decoded.roleId,
         roleName: result.decoded.roleName || null,
         name: result.decoded.name,
-        email: result.decoded.email
+        email: result.decoded.email,
+        phoneNumber: result.decoded.phoneNumber
       };
     } else {
       req.user = null;

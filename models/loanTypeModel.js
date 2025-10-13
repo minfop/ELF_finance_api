@@ -4,7 +4,8 @@ class LoanTypeModel {
   // Get all loan types
   static async findAll() {
     const [rows] = await pool.query(
-      `SELECT lt.id, lt.tenantId, lt.collectionType, lt.collectionPeriod, lt.isActive, lt.createdAt,
+      `SELECT lt.id, lt.tenantId, lt.collectionType, lt.collectionPeriod, lt.interest, 
+              lt.initialDeduction, lt.nilCalculation, lt.isActive,
               t.name as tenantName
        FROM loanType lt
        LEFT JOIN tenants t ON lt.tenantId = t.id`
@@ -15,7 +16,8 @@ class LoanTypeModel {
   // Get loan type by ID
   static async findById(id) {
     const [rows] = await pool.query(
-      `SELECT lt.id, lt.tenantId, lt.collectionType, lt.collectionPeriod, lt.isActive, lt.createdAt,
+      `SELECT lt.id, lt.tenantId, lt.collectionType, lt.collectionPeriod, lt.interest, 
+              lt.initialDeduction, lt.nilCalculation, lt.isActive,
               t.name as tenantName
        FROM loanType lt
        LEFT JOIN tenants t ON lt.tenantId = t.id
@@ -28,7 +30,8 @@ class LoanTypeModel {
   // Get loan types by tenant ID
   static async findByTenantId(tenantId) {
     const [rows] = await pool.query(
-      `SELECT lt.id, lt.tenantId, lt.collectionType, lt.collectionPeriod, lt.isActive, lt.createdAt,
+      `SELECT lt.id, lt.tenantId, lt.collectionType, lt.collectionPeriod, lt.interest, 
+              lt.initialDeduction, lt.nilCalculation, lt.isActive,
               t.name as tenantName
        FROM loanType lt
        LEFT JOIN tenants t ON lt.tenantId = t.id
@@ -41,7 +44,8 @@ class LoanTypeModel {
   // Get active loan types
   static async findActive() {
     const [rows] = await pool.query(
-      `SELECT lt.id, lt.tenantId, lt.collectionType, lt.collectionPeriod, lt.isActive, lt.createdAt,
+      `SELECT lt.id, lt.tenantId, lt.collectionType, lt.collectionPeriod, lt.interest, 
+              lt.initialDeduction, lt.nilCalculation, lt.isActive,
               t.name as tenantName
        FROM loanType lt
        LEFT JOIN tenants t ON lt.tenantId = t.id
@@ -52,20 +56,20 @@ class LoanTypeModel {
 
   // Create new loan type
   static async create(loanTypeData) {
-    const { tenantId, collectionType, collectionPeriod, isActive = 1 } = loanTypeData;
+    const { tenantId, collectionType, collectionPeriod, interest, initialDeduction, nilCalculation, isActive = 1 } = loanTypeData;
     const [result] = await pool.query(
-      'INSERT INTO loanType (tenantId, collectionType, collectionPeriod, isActive, createdAt) VALUES (?, ?, ?, ?, CURDATE())',
-      [tenantId, collectionType, collectionPeriod, isActive]
+      'INSERT INTO loanType (tenantId, collectionType, collectionPeriod, interest, initialDeduction, nilCalculation, isActive) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [tenantId, collectionType, collectionPeriod, interest, initialDeduction, nilCalculation, isActive]
     );
     return result.insertId;
   }
 
   // Update loan type
   static async update(id, loanTypeData) {
-    const { tenantId, collectionType, collectionPeriod, isActive } = loanTypeData;
+    const { tenantId, collectionType, collectionPeriod, interest, initialDeduction, nilCalculation, isActive } = loanTypeData;
     const [result] = await pool.query(
-      'UPDATE loanType SET tenantId = ?, collectionType = ?, collectionPeriod = ?, isActive = ? WHERE id = ?',
-      [tenantId, collectionType, collectionPeriod, isActive, id]
+      'UPDATE loanType SET tenantId = ?, collectionType = ?, collectionPeriod = ?, interest = ?, initialDeduction = ?, nilCalculation = ?, isActive = ? WHERE id = ?',
+      [tenantId, collectionType, collectionPeriod, interest, initialDeduction, nilCalculation, isActive, id]
     );
     return result.affectedRows;
   }

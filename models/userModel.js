@@ -17,7 +17,7 @@ class UserModel {
   // Get user by ID
   static async findById(id) {
     const [rows] = await pool.query(
-      `SELECT u.id, u.tenantId, u.name, u.roleId, u.phoneNumber, u.email, u.isActive, u.createdAt,
+      `SELECT u.id, u.tenantId, u.name, u.roleId, u.phoneNumber, u.email, u.isActive,
               t.name as tenantName, r.role as roleName
        FROM users u
        LEFT JOIN tenants t ON u.tenantId = t.id
@@ -79,15 +79,15 @@ class UserModel {
   }
 
   // Get user by email with password (for authentication)
-  static async findByEmailWithPassword(email) {
+  static async findByEmailWithPassword(phoneNumber) {
     const [rows] = await pool.query(
       `SELECT u.id, u.tenantId, u.name, u.roleId, u.phoneNumber, u.email, u.password, u.isActive, u.createdAt,
               t.name as tenantName, r.role as roleName
        FROM users u
        LEFT JOIN tenants t ON u.tenantId = t.id
        LEFT JOIN roles r ON u.roleId = r.id
-       WHERE u.email = ?`,
-      [email]
+       WHERE u.phoneNumber = ? and u.isActive = 1`,
+      [phoneNumber]
     );
     return rows[0];
   }

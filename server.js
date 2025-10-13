@@ -14,13 +14,14 @@ const subscriptionPlanRoutes = require('./routes/subscriptionPlanRoutes');
 const loanTypeRoutes = require('./routes/loanTypeRoutes');
 const loanRoutes = require('./routes/loanRoutes');
 const installmentRoutes = require('./routes/installmentRoutes');
+const lineTypeRoutes = require('./routes/lineTypeRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 
 // Setup Swagger Documentation
@@ -45,6 +46,7 @@ app.use('/api/tenant-subscriptions', tenantSubscriptionRoutes);
 app.use('/api/loan-types', loanTypeRoutes);
 app.use('/api/loans', loanRoutes);
 app.use('/api/installments', installmentRoutes);
+app.use('/api/line-types', lineTypeRoutes);
 
 // 404 handler
 app.use((req, res) => {

@@ -337,6 +337,8 @@ router.put('/:id', authenticateToken, checkRoleByName(['admin', 'manager']), use
  *     summary: Deactivate a user
  *     tags: [Users]
  *     description: Soft delete - set user's isActive status to false
+ *     security:
+ *       - BearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id

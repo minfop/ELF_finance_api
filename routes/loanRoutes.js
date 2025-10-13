@@ -16,7 +16,7 @@ const { authenticateToken, checkRoleByName } = require('../middleware/authMiddle
  *         - interest
  *         - disbursedAmount
  *         - loanTypeId
- *         - totalDays
+ *         - totalInstallment
  *         - startDate
  *         - endDate
  *         - installmentAmount
@@ -48,9 +48,12 @@ const { authenticateToken, checkRoleByName } = require('../middleware/authMiddle
  *         loanTypeId:
  *           type: integer
  *           description: Loan type ID
- *         totalDays:
+ *         lineTypeId:
  *           type: integer
- *           description: Total loan duration in days
+ *           description: Line type ID
+ *         totalInstallment:
+ *           type: integer
+ *           description: Total number of installments
  *           example: 30
  *         startDate:
  *           type: string
@@ -65,6 +68,10 @@ const { authenticateToken, checkRoleByName } = require('../middleware/authMiddle
  *           format: decimal
  *           description: Installment amount
  *           example: 383.33
+ *         initialDeduction:
+ *           type: integer
+ *           description: Initial deduction amount
+ *           example: 500
  *         isActive:
  *           type: boolean
  *           description: Active status
@@ -91,6 +98,9 @@ const { authenticateToken, checkRoleByName } = require('../middleware/authMiddle
  *         collectionPeriod:
  *           type: integer
  *           description: Collection period (from join)
+ *         lineTypeName:
+ *           type: string
+ *           description: Line type name (from join)
  */
 
 /**
@@ -314,7 +324,7 @@ router.get('/:id',
  *               - interest
  *               - disbursedAmount
  *               - loanTypeId
- *               - totalDays
+ *               - lineTypeId
  *               - startDate
  *               - endDate
  *               - installmentAmount
@@ -327,27 +337,18 @@ router.get('/:id',
  *                 example: 10000.00
  *               interest:
  *                 type: number
- *                 example: 1500.00
- *               disbursedAmount:
- *                 type: number
- *                 example: 11500.00
+ *                 example: 1200.00
  *               loanTypeId:
  *                 type: integer
  *                 example: 1
- *               totalDays:
+ *               lineTypeId:
  *                 type: integer
- *                 example: 30
+ *                 description: Line type ID
+ *                 example: 1
  *               startDate:
  *                 type: string
  *                 format: date
- *                 example: "2025-01-08"
- *               endDate:
- *                 type: string
- *                 format: date
- *                 example: "2025-02-07"
- *               installmentAmount:
- *                 type: number
- *                 example: 383.33
+ *                 example: "2025-10-12"
  *               status:
  *                 type: string
  *                 enum: [ONGOING, COMPLETED, PENDING, NIL]
@@ -392,15 +393,16 @@ router.post('/',
  *                 type: number
  *               interest:
  *                 type: number
- *               disbursedAmount:
- *                 type: number
- *               totalDays:
+ *               loanTypeId:
  *                 type: integer
- *               endDate:
+ *                 example: 1
+ *               lineTypeId:
+ *                 type: integer
+ *                 example: 1
+ *               startDate:
  *                 type: string
  *                 format: date
- *               installmentAmount:
- *                 type: number
+ *                 example: "2025-10-12"
  *               status:
  *                 type: string
  *                 enum: [ONGOING, COMPLETED, PENDING, NIL]

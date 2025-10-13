@@ -10,20 +10,20 @@ const { authenticateToken } = require('../middleware/authMiddleware');
  *     LoginRequest:
  *       type: object
  *       required:
- *         - email
+ *         - phoneNumber
  *         - password
  *       properties:
- *         email:
+ *         phoneNumber:
  *           type: string
- *           format: email
- *           description: User email address
+ *           format: number
+ *           description: User phoneNumber
  *         password:
  *           type: string
  *           format: password
  *           description: User password
  *       example:
- *         email: "john.doe@example.com"
- *         password: "password123"
+ *         phoneNumber: "+919677669080"
+ *         password: "Tester@1"
  *     LoginResponse:
  *       type: object
  *       properties:
@@ -123,7 +123,7 @@ const { authenticateToken } = require('../middleware/authMiddleware');
  *   post:
  *     summary: Login user
  *     tags: [Authentication]
- *     description: Authenticate user with email and password. Returns user info and JWT tokens.
+ *     description: Authenticate user with phoneNumber and password. Returns user info and JWT tokens.
  *     requestBody:
  *       required: true
  *       content:

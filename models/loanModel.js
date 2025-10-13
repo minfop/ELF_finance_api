@@ -5,14 +5,17 @@ class LoanModel {
   static async findAll() {
     const [rows] = await pool.query(
       `SELECT l.id, l.tenantId, l.customerId, l.principal, l.interest, l.disbursedAmount,
-              l.loanTypeId, l.totalDays, l.startDate, l.endDate, l.installmentAmount,
-              l.isActive, l.status, l.createdAt,
+              l.loanTypeId, l.lineTypeId, l.totalInstallment, l.startDate, l.endDate, l.installmentAmount,
+              l.initialDeduction, l.isActive, l.status, l.createdAt,
               t.name as tenantName, c.name as customerName, c.phoneNumber as customerPhone,
-              lt.collectionType, lt.collectionPeriod
+              lt.collectionType, lt.collectionPeriod, lt.interest as loanTypeInterest, 
+              lt.initialDeduction as loanTypeInitialDeduction, lt.nilCalculation,
+              lnt.name as lineTypeName
        FROM loans l
        LEFT JOIN tenants t ON l.tenantId = t.id
        LEFT JOIN customers c ON l.customerId = c.id
        LEFT JOIN loanType lt ON l.loanTypeId = lt.id
+       LEFT JOIN lineType lnt ON l.lineTypeId = lnt.id
        ORDER BY l.createdAt DESC`
     );
     return rows;
@@ -22,15 +25,18 @@ class LoanModel {
   static async findById(id) {
     const [rows] = await pool.query(
       `SELECT l.id, l.tenantId, l.customerId, l.principal, l.interest, l.disbursedAmount,
-              l.loanTypeId, l.totalDays, l.startDate, l.endDate, l.installmentAmount,
-              l.isActive, l.status, l.createdAt,
+              l.loanTypeId, l.lineTypeId, l.totalInstallment, l.startDate, l.endDate, l.installmentAmount,
+              l.initialDeduction, l.isActive, l.status, l.createdAt,
               t.name as tenantName, c.name as customerName, c.phoneNumber as customerPhone,
               c.email as customerEmail,
-              lt.collectionType, lt.collectionPeriod
+              lt.collectionType, lt.collectionPeriod, lt.interest as loanTypeInterest, 
+              lt.initialDeduction as loanTypeInitialDeduction, lt.nilCalculation,
+              lnt.name as lineTypeName
        FROM loans l
        LEFT JOIN tenants t ON l.tenantId = t.id
        LEFT JOIN customers c ON l.customerId = c.id
        LEFT JOIN loanType lt ON l.loanTypeId = lt.id
+       LEFT JOIN lineType lnt ON l.lineTypeId = lnt.id
        WHERE l.id = ?`,
       [id]
     );
@@ -41,14 +47,17 @@ class LoanModel {
   static async findByTenantId(tenantId) {
     const [rows] = await pool.query(
       `SELECT l.id, l.tenantId, l.customerId, l.principal, l.interest, l.disbursedAmount,
-              l.loanTypeId, l.totalDays, l.startDate, l.endDate, l.installmentAmount,
-              l.isActive, l.status, l.createdAt,
+              l.loanTypeId, l.lineTypeId, l.totalInstallment, l.startDate, l.endDate, l.installmentAmount,
+              l.initialDeduction, l.isActive, l.status, l.createdAt,
               t.name as tenantName, c.name as customerName, c.phoneNumber as customerPhone,
-              lt.collectionType, lt.collectionPeriod
+              lt.collectionType, lt.collectionPeriod, lt.interest as loanTypeInterest, 
+              lt.initialDeduction as loanTypeInitialDeduction, lt.nilCalculation,
+              lnt.name as lineTypeName
        FROM loans l
        LEFT JOIN tenants t ON l.tenantId = t.id
        LEFT JOIN customers c ON l.customerId = c.id
        LEFT JOIN loanType lt ON l.loanTypeId = lt.id
+       LEFT JOIN lineType lnt ON l.lineTypeId = lnt.id
        WHERE l.tenantId = ?
        ORDER BY l.createdAt DESC`,
       [tenantId]
@@ -60,14 +69,17 @@ class LoanModel {
   static async findByCustomerId(customerId) {
     const [rows] = await pool.query(
       `SELECT l.id, l.tenantId, l.customerId, l.principal, l.interest, l.disbursedAmount,
-              l.loanTypeId, l.totalDays, l.startDate, l.endDate, l.installmentAmount,
-              l.isActive, l.status, l.createdAt,
+              l.loanTypeId, l.lineTypeId, l.totalInstallment, l.startDate, l.endDate, l.installmentAmount,
+              l.initialDeduction, l.isActive, l.status, l.createdAt,
               t.name as tenantName, c.name as customerName, c.phoneNumber as customerPhone,
-              lt.collectionType, lt.collectionPeriod
+              lt.collectionType, lt.collectionPeriod, lt.interest as loanTypeInterest, 
+              lt.initialDeduction as loanTypeInitialDeduction, lt.nilCalculation,
+              lnt.name as lineTypeName
        FROM loans l
        LEFT JOIN tenants t ON l.tenantId = t.id
        LEFT JOIN customers c ON l.customerId = c.id
        LEFT JOIN loanType lt ON l.loanTypeId = lt.id
+       LEFT JOIN lineType lnt ON l.lineTypeId = lnt.id
        WHERE l.customerId = ?
        ORDER BY l.createdAt DESC`,
       [customerId]
@@ -78,14 +90,17 @@ class LoanModel {
   // Get loans by status
   static async findByStatus(status, tenantId = null) {
     let query = `SELECT l.id, l.tenantId, l.customerId, l.principal, l.interest, l.disbursedAmount,
-              l.loanTypeId, l.totalDays, l.startDate, l.endDate, l.installmentAmount,
-              l.isActive, l.status, l.createdAt,
+              l.loanTypeId, l.lineTypeId, l.totalInstallment, l.startDate, l.endDate, l.installmentAmount,
+              l.initialDeduction, l.isActive, l.status, l.createdAt,
               t.name as tenantName, c.name as customerName, c.phoneNumber as customerPhone,
-              lt.collectionType, lt.collectionPeriod
+              lt.collectionType, lt.collectionPeriod, lt.interest as loanTypeInterest, 
+              lt.initialDeduction as loanTypeInitialDeduction, lt.nilCalculation,
+              lnt.name as lineTypeName
        FROM loans l
        LEFT JOIN tenants t ON l.tenantId = t.id
        LEFT JOIN customers c ON l.customerId = c.id
        LEFT JOIN loanType lt ON l.loanTypeId = lt.id
+       LEFT JOIN lineType lnt ON l.lineTypeId = lnt.id
        WHERE l.status = ?`;
     
     let params = [status];
@@ -105,14 +120,17 @@ class LoanModel {
   static async findActive() {
     const [rows] = await pool.query(
       `SELECT l.id, l.tenantId, l.customerId, l.principal, l.interest, l.disbursedAmount,
-              l.loanTypeId, l.totalDays, l.startDate, l.endDate, l.installmentAmount,
-              l.isActive, l.status, l.createdAt,
+              l.loanTypeId, l.lineTypeId, l.totalInstallment, l.startDate, l.endDate, l.installmentAmount,
+              l.initialDeduction, l.isActive, l.status, l.createdAt,
               t.name as tenantName, c.name as customerName, c.phoneNumber as customerPhone,
-              lt.collectionType, lt.collectionPeriod
+              lt.collectionType, lt.collectionPeriod, lt.interest as loanTypeInterest, 
+              lt.initialDeduction as loanTypeInitialDeduction, lt.nilCalculation,
+              lnt.name as lineTypeName
        FROM loans l
        LEFT JOIN tenants t ON l.tenantId = t.id
        LEFT JOIN customers c ON l.customerId = c.id
        LEFT JOIN loanType lt ON l.loanTypeId = lt.id
+       LEFT JOIN lineType lnt ON l.lineTypeId = lnt.id
        WHERE l.isActive = 1
        ORDER BY l.createdAt DESC`
     );
@@ -122,16 +140,16 @@ class LoanModel {
   // Create new loan
   static async create(loanData) {
     const {
-      tenantId, customerId, principal, interest, disbursedAmount, loanTypeId,
-      totalDays, startDate, endDate, installmentAmount, isActive = 1, status = 'ONGOING'
+      tenantId, customerId, principal, interest, disbursedAmount, loanTypeId, lineTypeId,
+      totalInstallment, startDate, endDate, installmentAmount, initialDeduction, isActive = 1, status = 'ONGOING'
     } = loanData;
     
     const [result] = await pool.query(
-      `INSERT INTO loans (tenantId, customerId, principal, interest, disbursedAmount, loanTypeId,
-                          totalDays, startDate, endDate, installmentAmount, isActive, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [tenantId, customerId, principal, interest, disbursedAmount, loanTypeId,
-       totalDays, startDate, endDate, installmentAmount, isActive, status]
+      `INSERT INTO loans (tenantId, customerId, principal, interest, disbursedAmount, loanTypeId, lineTypeId,
+                          totalInstallment, startDate, endDate, installmentAmount, initialDeduction, isActive, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [tenantId, customerId, principal, interest, disbursedAmount, loanTypeId, lineTypeId,
+       totalInstallment, startDate, endDate, installmentAmount, initialDeduction, isActive, status]
     );
     return result.insertId;
   }
@@ -139,17 +157,17 @@ class LoanModel {
   // Update loan
   static async update(id, loanData) {
     const {
-      tenantId, customerId, principal, interest, disbursedAmount, loanTypeId,
-      totalDays, startDate, endDate, installmentAmount, isActive, status
+      tenantId, customerId, principal, interest, disbursedAmount, loanTypeId, lineTypeId,
+      totalInstallment, startDate, endDate, installmentAmount, initialDeduction, isActive, status
     } = loanData;
     
     const [result] = await pool.query(
       `UPDATE loans SET tenantId = ?, customerId = ?, principal = ?, interest = ?,
-              disbursedAmount = ?, loanTypeId = ?, totalDays = ?, startDate = ?, endDate = ?,
-              installmentAmount = ?, isActive = ?, status = ?
+              disbursedAmount = ?, loanTypeId = ?, lineTypeId = ?, totalInstallment = ?, startDate = ?, endDate = ?,
+              installmentAmount = ?, initialDeduction = ?, isActive = ?, status = ?
        WHERE id = ?`,
-      [tenantId, customerId, principal, interest, disbursedAmount, loanTypeId,
-       totalDays, startDate, endDate, installmentAmount, isActive, status, id]
+      [tenantId, customerId, principal, interest, disbursedAmount, loanTypeId, lineTypeId,
+       totalInstallment, startDate, endDate, installmentAmount, initialDeduction, isActive, status, id]
     );
     return result.affectedRows;
   }

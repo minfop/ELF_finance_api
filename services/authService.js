@@ -5,26 +5,26 @@ const JWTUtils = require('../utils/jwtUtils');
 class AuthService {
   /**
    * Login user with email and password
-   * @param {String} email - User email
+   * @param {String} phoneNumber - User email
    * @param {String} password - User password
    */
-  async login(email, password) {
+  async login(phoneNumber, password) {
     try {
       // Validate input
-      if (!email || !password) {
+      if (!phoneNumber || !password) {
         return {
           success: false,
-          message: 'Email and password are required'
+          message: 'phoneNumber and password are required'
         };
       }
 
-      // Find user by email with password
-      const user = await UserModel.findByEmailWithPassword(email);
+      // Find user by phoneNumber with password
+      const user = await UserModel.findByEmailWithPassword(phoneNumber);
 
       if (!user) {
         return {
           success: false,
-          message: 'Invalid email or password'
+          message: 'Invalid phoneNumber or password'
         };
       }
 
@@ -53,7 +53,8 @@ class AuthService {
         roleId: user.roleId,
         roleName: user.roleName || null,  // roleName comes from the JOIN with roles table
         name: user.name,
-        email: user.email
+        email: user.email,
+        phoneNumber: user.phoneNumber
       };
 
       const tokens = JWTUtils.generateTokenPair(tokenPayload);
@@ -76,6 +77,7 @@ class AuthService {
             name: user.name,
             roleId: user.roleId,
             email: user.email,
+            phoneNumber: user.phoneNumber,
             tenantName: user.tenantName,
             roleName: user.roleName
           },
@@ -102,7 +104,6 @@ class AuthService {
 
       // Verify refresh token
       const verification = JWTUtils.verifyRefreshToken(refreshToken);
-
       if (!verification.valid) {
         return {
           success: false,
@@ -111,18 +112,18 @@ class AuthService {
         };
       }
 
-      // Check if token exists in database and is not revoked
-      const storedToken = await AuthModel.findRefreshToken(refreshToken);
+      // // Check if token exists in database and is not revoked
+      // const storedToken = await AuthModel.findRefreshToken(refreshToken);
 
-      if (!storedToken) {
-        return {
-          success: false,
-          message: 'Refresh token not found or has been revoked'
-        };
-      }
+      // if (!storedToken) {
+      //   return {
+      //     success: false,
+      //     message: 'Refresh token not found or has been revoked'
+      //   };
+      // }
 
       // Check if token is expired
-      if (new Date(storedToken.expiresAt) < new Date()) {
+      if (new Date(verification.decoded.expiresAt) < new Date()) {
         return {
           success: false,
           message: 'Refresh token has expired'
@@ -130,8 +131,8 @@ class AuthService {
       }
 
       // Get user information
-      const user = await UserModel.findById(storedToken.userId);
-
+      const user = await UserModel.findById(verification.decoded.userId);
+      console.log('user', user);
       if (!user) {
         return {
           success: false,
@@ -154,7 +155,8 @@ class AuthService {
         roleId: user.roleId,
         roleName: user.roleName || null,  // roleName comes from the JOIN with roles table
         name: user.name,
-        email: user.email
+        email: user.email,
+        phoneNumber: user.phoneNumber
       };
 
       const accessToken = JWTUtils.generateAccessToken(tokenPayload);
@@ -163,9 +165,21 @@ class AuthService {
         success: true,
         message: 'Token refreshed successfully',
         data: {
-          accessToken: accessToken,
-          tokenType: 'Bearer',
-          expiresIn: process.env.JWT_EXPIRES_IN || '1h'
+          user: {
+            id: user.id,
+            tenantId: user.tenantId,
+            name: user.name,
+            roleId: user.roleId,
+            email: user.email,
+            phoneNumber: user.phoneNumber,
+            tenantName: user.tenantName,
+            roleName: user.roleName
+          },
+          tokens: {
+            accessToken: accessToken,
+            tokenType: 'Bearer',
+            expiresIn: process.env.JWT_EXPIRES_IN || '1h'
+          }
         }
       };
     } catch (error) {
@@ -223,6 +237,7 @@ class AuthService {
           roleId: verification.decoded.roleId,
           name: verification.decoded.name,
           email: verification.decoded.email,
+          phoneNumber: verification.decoded.phoneNumber,
           exp: verification.decoded.exp,
           iat: verification.decoded.iat
         }

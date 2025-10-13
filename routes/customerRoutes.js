@@ -156,6 +156,9 @@ router.get('/:id',
  *                 type: string
  *                 description: Documents (JSON string with document data)
  *                 example: "{\"id_card\":\"base64_data\",\"contract\":\"base64_data\"}"
+ *               isActive:
+ *                 type: boolean
+ *                 description: Active status
  *     responses:
  *       201:
  *         description: Customer created
@@ -205,6 +208,9 @@ router.post('/',
  *               documents:
  *                 type: string
  *                 description: Documents (JSON string)
+ *               isActive:
+ *                 type: boolean
+ *                 description: Active status
  *     responses:
  *       200:
  *         description: Customer updated

@@ -114,6 +114,27 @@ class LoanTypeService {
         };
       }
 
+      if (loanTypeData.interest === undefined || loanTypeData.interest === null) {
+        return {
+          success: false,
+          message: 'Interest is required'
+        };
+      }
+
+      if (loanTypeData.initialDeduction === undefined || loanTypeData.initialDeduction === null) {
+        return {
+          success: false,
+          message: 'Initial deduction is required'
+        };
+      }
+
+      if (loanTypeData.nilCalculation === undefined || loanTypeData.nilCalculation === null) {
+        return {
+          success: false,
+          message: 'Nil calculation is required'
+        };
+      }
+
       const loanTypeId = await LoanTypeModel.create(loanTypeData);
       const newLoanType = await LoanTypeModel.findById(loanTypeId);
 
