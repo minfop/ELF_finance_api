@@ -1,5 +1,8 @@
 const LoanModel = require('../models/loanModel');
 const LoanTypeModel = require('../models/loanTypeModel');
+const LineTypeModel = require('../models/lineTypeModel');
+const InstallmentModel = require('../models/installmentModel');
+const CustomerModel = require('../models/customerModel');
 
 class LoanService {
   /**
@@ -199,6 +202,92 @@ class LoanService {
     }
   }
 
+  // Get loans by line type (with access control based on lineType.accessUsersId)
+  async getLoansByLineType(lineTypeId, userId, userTenantId) {
+    try {
+      if (!lineTypeId) {
+        return {
+          success: false,
+          message: 'Line Type ID is required'
+        };
+      }
+
+      if (!userId || !userTenantId) {
+        return {
+          success: false,
+          message: 'User ID and Tenant ID are required'
+        };
+      }
+
+      // Fetch line type to check access
+      const lineType = await LineTypeModel.findById(lineTypeId);
+      
+      if (!lineType) {
+        return {
+          success: false,
+          message: 'Line type not found'
+        };
+      }
+
+      // Check tenant access
+      if (lineType.tenantId !== userTenantId) {
+        return {
+          success: false,
+          message: 'Access denied: Line type belongs to different tenant'
+        };
+      }
+
+      // Check user access based on accessUsersId
+      // accessUsersId is stored as comma-separated string like "1,2,3"
+      if (lineType.accessUsersId) {
+        const accessUserIds = lineType.accessUsersId.split(',').map(id => parseInt(id.trim()));
+        
+        if (!accessUserIds.includes(userId)) {
+          return {
+            success: false,
+            message: 'Access denied: You do not have permission to access loans for this line type'
+          };
+        }
+      } else {
+        // If accessUsersId is null or empty, deny access (or allow all based on your business logic)
+        return {
+          success: false,
+          message: 'Access denied: No users are authorized for this line type'
+        };
+      }
+
+      // Fetch loans by lineTypeId
+      const loans = await LoanModel.findByLineTypeId(lineTypeId, userTenantId);
+      
+      // If loans exist, fetch installments for last 5 days (including today)
+      if (loans && loans.length > 0) {
+        const loanIds = loans.map(loan => loan.id);
+        const installments = await InstallmentModel.findByLoanIdsAndDateRange(loanIds, 5);
+        
+        // Group installments by loanId
+        const installmentsByLoanId = {};
+        installments.forEach(installment => {
+          if (!installmentsByLoanId[installment.loanId]) {
+            installmentsByLoanId[installment.loanId] = [];
+          }
+          installmentsByLoanId[installment.loanId].push(installment);
+        });
+        
+        // Attach installments to each loan
+        loans.forEach(loan => {
+          loan.installments = installmentsByLoanId[loan.id] || [];
+        });
+      }
+      
+      return {
+        success: true,
+        data: loans
+      };
+    } catch (error) {
+      throw new Error(`Error fetching loans by line type: ${error.message}`);
+    }
+  }
+
   // Get loan statistics
   async getLoanStats(userTenantId) {
     try {
@@ -220,8 +309,97 @@ class LoanService {
     }
   }
 
+  // Get analytics data by date range
+  async getDateRangeAnalytics(fromDate, toDate, userId, userTenantId) {
+    try {
+      // Validate required fields
+      if (!fromDate || !toDate) {
+        return {
+          success: false,
+          message: 'fromDate and toDate are required'
+        };
+      }
+
+      if (!userId || !userTenantId) {
+        return {
+          success: false,
+          message: 'User ID and Tenant ID are required'
+        };
+      }
+
+      // Validate date format (YYYY-MM-DD)
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      if (!dateRegex.test(fromDate) || !dateRegex.test(toDate)) {
+        return {
+          success: false,
+          message: 'Invalid date format. Use YYYY-MM-DD'
+        };
+      }
+
+      // Validate fromDate is not after toDate
+      if (new Date(fromDate) > new Date(toDate)) {
+        return {
+          success: false,
+          message: 'fromDate cannot be after toDate'
+        };
+      }
+
+      // Fetch all analytics data in parallel
+      const [loanAnalytics, customerAnalytics, installmentAnalytics, expensesList, expensesTotal] = await Promise.all([
+        LoanModel.getAnalyticsByDateRange(fromDate, toDate, userTenantId),
+        CustomerModel.getNewCustomersCountByDateRange(fromDate, toDate, userTenantId),
+        InstallmentModel.getTotalCollectedByDateRange(fromDate, toDate, userTenantId),
+        require('../models/expensesModel').getListByDateRange(fromDate, toDate, userTenantId),
+        require('../models/expensesModel').getTotalByDateRange(fromDate, toDate, userTenantId)
+      ]);
+
+      // Combine all analytics data
+      const analytics = {
+        dateRange: {
+          fromDate,
+          toDate
+        },
+        loans: {
+          newLoanCount: loanAnalytics.newLoanCount || 0,
+          totalDisbursedAmount: parseFloat(loanAnalytics.totalDisbursedAmount) || 0,
+          totalInitialDeduction: parseFloat(loanAnalytics.totalInitialDeduction) || 0,
+          totalInterest: parseFloat(loanAnalytics.totalInterest) || 0,
+          totalInvestmentAmount: parseFloat(loanAnalytics.totalInvestmentAmount) || 0,
+          totalBalanceAmountInLine: parseFloat(loanAnalytics.totalBalanceAmountInLine) || 0
+        },
+        customers: {
+          newCustomerCount: customerAnalytics.newCustomerCount || 0
+        },
+        installments: {
+          totalCashInHand: parseFloat(installmentAnalytics.totalCashInHand) || 0,
+          totalCashInOnline: parseFloat(installmentAnalytics.totalCashInOnline) || 0,
+          totalCollected: parseFloat(installmentAnalytics.totalCollected) || 0
+        },
+        expenses: {
+          list: (expensesList || []).map(e => ({
+            id: e.id,
+            expenseId: e.expenseId,
+            expenseName: e.expenseName,
+            amount: parseFloat(e.amount) || 0,
+            userId: e.userId,
+            lineTypeId: e.lineTypeId,
+            createdAt: e.createdAt
+          })),
+          totalExpensesAmount: parseFloat(expensesTotal?.totalExpensesAmount) || 0
+        }
+      };
+
+      return {
+        success: true,
+        data: analytics
+      };
+    } catch (error) {
+      throw new Error(`Error fetching date range analytics: ${error.message}`);
+    }
+  }
+
   // Create loan
-  async createLoan(loanData) {
+  async createLoan(loanData, userId = null) {
     try {
       // Validate required fields
       if (!loanData.tenantId) {
@@ -245,27 +423,6 @@ class LoanService {
         };
       }
 
-      if (!loanData.interest) {
-        return {
-          success: false,
-          message: 'Interest amount is required'
-        };
-      }
-
-      // if (!loanData.disbursedAmount) {
-      //   return {
-      //     success: false,
-      //     message: 'Disbursed amount is required'
-      //   };
-      // }
-
-      if (!loanData.loanTypeId) {
-        return {
-          success: false,
-          message: 'Loan type ID is required'
-        };
-      }
-
       if (!loanData.lineTypeId) {
         return {
           success: false,
@@ -273,33 +430,58 @@ class LoanService {
         };
       }
 
-      // if (!loanData.totalInstallment) {
-      //   return {
-      //     success: false,
-      //     message: 'Total installment is required'
-      //   };
-      // }
-
       if (!loanData.startDate) {
         return {
           success: false,
           message: 'Start date is required'
         };
       }
-
-      // if (!loanData.endDate) {
-      //   return {
-      //     success: false,
-      //     message: 'End date is required'
-      //   };
-      // }
-
-      // if (!loanData.installmentAmount) {
-      //   return {
-      //     success: false,
-      //     message: 'Installment amount is required'
-      //   };
-      // }
+      
+      // Fetch line type to get loanTypeId and validate tenant
+      const lineType = await LineTypeModel.findById(loanData.lineTypeId);
+      
+      if (!lineType) {
+        return {
+          success: false,
+          message: 'Line type not found'
+        };
+      }
+      
+      // Verify tenant ID matches
+      if (lineType.tenantId !== loanData.tenantId) {
+        return {
+          success: false,
+          message: 'Line type does not belong to this tenant'
+        };
+      }
+      
+      // Enforce access via lineType.accessUsersId: if null/empty -> deny; otherwise require membership
+      if (!userId) {
+        return {
+          success: false,
+          message: "Access denied: Invalid user context"
+        };
+      }
+      const accessUsersRaw = lineType.accessUsersId;
+      if (!accessUsersRaw || String(accessUsersRaw).trim().length === 0) {
+        return {
+          success: false,
+          message: "Access denied: Line type has no access assignments"
+        };
+      }
+      const accessUserIds = String(accessUsersRaw)
+        .split(',')
+        .map(id => parseInt(id.trim()))
+        .filter(n => !Number.isNaN(n));
+      if (accessUserIds.length === 0 || !accessUserIds.includes(userId)) {
+        return {
+          success: false,
+          message: "Access denied: You don't have permission to use this line type"
+        };
+      }
+      
+      // Get loanTypeId from lineType
+      loanData.loanTypeId = lineType.loanTypeId;
       
       // Calculate end date based on loan type
       const calculatedEndDate = await this.calculateEndDate(
@@ -311,22 +493,38 @@ class LoanService {
       
       // Fetch loan type to get initialDeduction percentage
       const loanType = await LoanTypeModel.findById(loanData.loanTypeId);
-      // Verify tenant ID matches
-      if (loanType.tenantId !== loanData.tenantId) {
-        throw new Error('Loan type does not belong to this tenant');
-      }
       const initialDeductionPercent = parseInt(loanType.initialDeduction);
       const interestPercent = parseInt(loanType.interest);
       const collectionPeriod = parseInt(loanType.collectionPeriod);
+      const isInterestPreDetection = loanType.isInterestPreDetection;
       const interestAmount = Math.round((parseFloat(loanData.principal) * interestPercent) / 100);
       
       // Calculate initialDeduction amount based on percentage
       loanData.initialDeduction = Math.round((parseFloat(loanData.principal) * initialDeductionPercent) / 100);
-      
-      loanData.installmentAmount = parseFloat(loanData.principal / collectionPeriod).toFixed(2); // Simple equal installment calculation
       loanData.totalInstallment = collectionPeriod;
       loanData.interest = interestAmount;
-      loanData.disbursedAmount = parseFloat(loanData.principal) - parseFloat(interestAmount); // Total disbursed amount
+      
+      // Calculate disbursedAmount based on isInterestPreDetection flag
+      if (isInterestPreDetection) {
+        // If true: 
+        // principal - interest - initialDeduction = disbursedAmount
+        loanData.disbursedAmount = parseFloat(loanData.principal) - parseFloat(interestAmount) - parseFloat(loanData.initialDeduction);
+        // (principal) / installmentAmount
+        loanData.installmentAmount = parseFloat(loanData.principal / collectionPeriod).toFixed(2); // Simple equal installment calculation
+        // totalAmount = principal (interest already deducted)
+        loanData.totalAmount = parseFloat(loanData.principal);
+      } else {
+        // If false: 
+        // principal - initialDeduction = disbursedAmount
+        loanData.disbursedAmount = parseFloat(loanData.principal) - parseFloat(loanData.initialDeduction);
+        // (principal + interest) / installmentAmount
+        loanData.installmentAmount = parseFloat((parseFloat(loanData.principal) + parseFloat(loanData.interest)) / collectionPeriod).toFixed(2); // Simple equal installment calculation
+        // totalAmount = principal + interest
+        loanData.totalAmount = parseFloat(loanData.principal) + parseFloat(interestAmount);
+      }
+      
+      // balanceAmount initially equals totalAmount (no payments made yet)
+      loanData.balanceAmount = loanData.totalAmount;
       
       const loanId = await LoanModel.create(loanData);
       const newLoan = await LoanModel.findById(loanId);
@@ -365,6 +563,29 @@ class LoanService {
       loanData.tenantId = existingLoan.tenantId;
       loanData.customerId = existingLoan.customerId;
       
+      // Fetch line type to get loanTypeId
+      if (loanData.lineTypeId) {
+        const lineType = await LineTypeModel.findById(loanData.lineTypeId);
+        
+        if (!lineType) {
+          return {
+            success: false,
+            message: 'Line type not found'
+          };
+        }
+        
+        // Verify tenant ID matches
+        if (lineType.tenantId !== loanData.tenantId) {
+          return {
+            success: false,
+            message: 'Line type does not belong to this tenant'
+          };
+        }
+        
+        // Get loanTypeId from lineType
+        loanData.loanTypeId = lineType.loanTypeId;
+      }
+      
       // Calculate end date based on loan type if relevant fields are provided
       if (loanData.loanTypeId && loanData.startDate) {
         const calculatedEndDate = await this.calculateEndDate(
@@ -376,23 +597,55 @@ class LoanService {
       }
       
       // Fetch loan type to get initialDeduction percentage
-      const loanType = await LoanTypeModel.findById(loanData.loanTypeId);
+      if (loanData.loanTypeId) {
+        const loanType = await LoanTypeModel.findById(loanData.loanTypeId);
+        
+        if (!loanType) {
+          return {
+            success: false,
+            message: 'Loan type not found'
+          };
+        }
+        
+        const initialDeductionPercent = parseInt(loanType.initialDeduction);
+        const interestPercent = parseInt(loanType.interest);
+        const collectionPeriod = parseInt(loanType.collectionPeriod);
+        const isInterestPreDetection = loanType.isInterestPreDetection;
+        const interestAmount = Math.round((parseFloat(loanData.principal) * interestPercent) / 100);
       
-      // Verify tenant ID matches
-      if (loanType.tenantId !== loanData.tenantId) {
-        throw new Error('Loan type does not belong to this tenant');
+        // Calculate initialDeduction amount based on percentage
+        loanData.initialDeduction = Math.round((parseFloat(loanData.principal) * initialDeductionPercent) / 100);
+        loanData.interest = interestAmount;
+        loanData.totalInstallment = collectionPeriod;
+        
+        // Calculate disbursedAmount based on isInterestPreDetection flag
+       if (isInterestPreDetection) {
+         // If true: 
+         // principal - interest - initialDeduction = disbursedAmount
+         loanData.disbursedAmount = parseFloat(loanData.principal) - parseFloat(interestAmount) - parseFloat(loanData.initialDeduction);
+         // (principal) / installmentAmount
+         loanData.installmentAmount = parseFloat(loanData.principal / collectionPeriod).toFixed(2); // Simple equal installment calculation
+         // totalAmount = principal (interest already deducted)
+         loanData.totalAmount = parseFloat(loanData.principal);
+       } else {
+         // If false: 
+         // principal - initialDeduction = disbursedAmount
+         loanData.disbursedAmount = parseFloat(loanData.principal) - parseFloat(loanData.initialDeduction);
+         // (principal + interest) / installmentAmount
+         loanData.installmentAmount = parseFloat((parseFloat(loanData.principal) + parseFloat(loanData.interest)) / collectionPeriod).toFixed(2); // Simple equal installment calculation
+         // totalAmount = principal + interest
+         loanData.totalAmount = parseFloat(loanData.principal) + parseFloat(interestAmount);
+       }
+       
+       // Get existing balance or set to totalAmount
+       const existingLoan = await LoanModel.findById(id);
+       if (existingLoan) {
+         // Keep existing balanceAmount during update unless recalculating
+         loanData.balanceAmount = existingLoan.balanceAmount;
+       } else {
+         loanData.balanceAmount = loanData.totalAmount;
+       }
       }
-      const initialDeductionPercent = parseInt(loanType.initialDeduction);
-      const interestPercent = parseInt(loanType.interest);
-      const collectionPeriod = parseInt(loanType.collectionPeriod);
-      const interestAmount = Math.round((parseFloat(loanData.principal) * interestPercent) / 100);
-      
-      // Calculate initialDeduction amount based on percentage
-      loanData.initialDeduction = Math.round((parseFloat(loanData.principal) * initialDeductionPercent) / 100);
-      loanData.interest = interestAmount;
-      loanData.installmentAmount = parseFloat(loanData.principal / collectionPeriod).toFixed(2); // Simple equal installment calculation
-      loanData.totalInstallment = collectionPeriod;
-      loanData.disbursedAmount = parseFloat(loanData.principal) - parseFloat(interestAmount); // Total disbursed amount
       
       const affectedRows = await LoanModel.update(id, loanData);
       

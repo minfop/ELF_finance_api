@@ -4,8 +4,10 @@ class InstallmentModel {
   // Get all installments
   static async findAll() {
     const [rows] = await pool.query(
-      `SELECT i.id, i.loanId, i.tenantId, i.date, i.amount, i.status,
-              i.collectedBy, i.collectedAt, i.createdAt,
+      `SELECT i.id, i.loanId, i.tenantId, 
+              DATE_FORMAT(i.dueAt, '%Y-%m-%d') as dueAt, 
+              i.amount, i.remainAmount, i.cashInHand, i.cashInOnline, i.status,
+              i.collectedBy, i.nextDue, i.createdAt,
               t.name as tenantName, l.principal as loanPrincipal,
               c.name as customerName, c.phoneNumber as customerPhone,
               u.name as collectedByName
@@ -14,7 +16,7 @@ class InstallmentModel {
        LEFT JOIN loans l ON i.loanId = l.id
        LEFT JOIN customers c ON l.customerId = c.id
        LEFT JOIN users u ON i.collectedBy = u.id
-       ORDER BY i.date DESC`
+       ORDER BY i.dueAt DESC`
     );
     return rows;
   }
@@ -22,8 +24,10 @@ class InstallmentModel {
   // Get installment by ID
   static async findById(id) {
     const [rows] = await pool.query(
-      `SELECT i.id, i.loanId, i.tenantId, i.date, i.amount, i.status,
-              i.collectedBy, i.collectedAt, i.createdAt,
+      `SELECT i.id, i.loanId, i.tenantId, 
+              DATE_FORMAT(i.dueAt, '%Y-%m-%d') as dueAt, 
+              i.amount, i.remainAmount, i.cashInHand, i.cashInOnline, i.status,
+              i.collectedBy, i.nextDue, i.createdAt,
               t.name as tenantName, l.principal as loanPrincipal, l.disbursedAmount,
               c.name as customerName, c.phoneNumber as customerPhone, c.email as customerEmail,
               u.name as collectedByName
@@ -41,8 +45,10 @@ class InstallmentModel {
   // Get installments by tenant ID
   static async findByTenantId(tenantId) {
     const [rows] = await pool.query(
-      `SELECT i.id, i.loanId, i.tenantId, i.date, i.amount, i.status,
-              i.collectedBy, i.collectedAt, i.createdAt,
+      `SELECT i.id, i.loanId, i.tenantId, 
+              DATE_FORMAT(i.dueAt, '%Y-%m-%d') as dueAt, 
+              i.amount, i.remainAmount, i.cashInHand, i.cashInOnline, i.status,
+              i.collectedBy, i.nextDue, i.createdAt,
               t.name as tenantName, l.principal as loanPrincipal,
               c.name as customerName, c.phoneNumber as customerPhone,
               u.name as collectedByName
@@ -52,7 +58,7 @@ class InstallmentModel {
        LEFT JOIN customers c ON l.customerId = c.id
        LEFT JOIN users u ON i.collectedBy = u.id
        WHERE i.tenantId = ?
-       ORDER BY i.date DESC`,
+       ORDER BY i.dueAt DESC`,
       [tenantId]
     );
     return rows;
@@ -61,8 +67,10 @@ class InstallmentModel {
   // Get installments by loan ID
   static async findByLoanId(loanId) {
     const [rows] = await pool.query(
-      `SELECT i.id, i.loanId, i.tenantId, i.date, i.amount, i.status,
-              i.collectedBy, i.collectedAt, i.createdAt,
+      `SELECT i.id, i.loanId, i.tenantId, 
+              DATE_FORMAT(i.dueAt, '%Y-%m-%d') as dueAt, 
+              i.amount, i.remainAmount, i.cashInHand, i.cashInOnline, i.status,
+              i.collectedBy, i.nextDue, i.createdAt,
               t.name as tenantName, l.principal as loanPrincipal,
               c.name as customerName, c.phoneNumber as customerPhone,
               u.name as collectedByName
@@ -72,16 +80,19 @@ class InstallmentModel {
        LEFT JOIN customers c ON l.customerId = c.id
        LEFT JOIN users u ON i.collectedBy = u.id
        WHERE i.loanId = ?
-       ORDER BY i.date ASC`,
+       ORDER BY i.dueAt ASC`,
       [loanId]
     );
+    console.log('rows', rows);
     return rows;
   }
 
   // Get installments by status
   static async findByStatus(status, tenantId = null) {
-    let query = `SELECT i.id, i.loanId, i.tenantId, i.date, i.amount, i.status,
-              i.collectedBy, i.collectedAt, i.createdAt,
+    let query = `SELECT i.id, i.loanId, i.tenantId, 
+              DATE_FORMAT(i.dueAt, '%Y-%m-%d') as dueAt, 
+              i.amount, i.status,
+              i.collectedBy, i.createdAt,
               t.name as tenantName, l.principal as loanPrincipal,
               c.name as customerName, c.phoneNumber as customerPhone,
               u.name as collectedByName
@@ -112,8 +123,10 @@ class InstallmentModel {
 
   // Get today's installments
   static async findToday(tenantId = null) {
-    let query = `SELECT i.id, i.loanId, i.tenantId, i.date, i.amount, i.status,
-              i.collectedBy, i.collectedAt, i.createdAt,
+    let query = `SELECT i.id, i.loanId, i.tenantId, 
+              DATE_FORMAT(i.dueAt, '%Y-%m-%d') as dueAt, 
+              i.amount, i.status,
+              i.collectedBy, i.createdAt,
               t.name as tenantName, l.principal as loanPrincipal,
               c.name as customerName, c.phoneNumber as customerPhone,
               u.name as collectedByName
@@ -122,7 +135,7 @@ class InstallmentModel {
        LEFT JOIN loans l ON i.loanId = l.id
        LEFT JOIN customers c ON l.customerId = c.id
        LEFT JOIN users u ON i.collectedBy = u.id
-       WHERE i.date = CURDATE()`;
+       WHERE i.dueAt = CURDATE()`;
     
     let params = [];
     
@@ -137,31 +150,71 @@ class InstallmentModel {
     return rows;
   }
 
+  // Get installments by loan IDs for last N days (including today)
+  static async findByLoanIdsAndDateRange(loanIds, days = 5) {
+    if (!loanIds || loanIds.length === 0) {
+      return [];
+    }
+
+    const placeholders = loanIds.map(() => '?').join(',');
+    
+    const query = `SELECT i.id, i.loanId, i.tenantId, 
+              DATE_FORMAT(i.dueAt, '%Y-%m-%d') as dueAt, 
+              i.amount, i.remainAmount, i.cashInHand, i.cashInOnline, i.status,
+              i.collectedBy, i.nextDue, i.createdAt,
+              t.name as tenantName, l.principal as loanPrincipal,
+              c.name as customerName, c.phoneNumber as customerPhone,
+              u.name as collectedByName
+       FROM installments i
+       LEFT JOIN tenants t ON i.tenantId = t.id
+       LEFT JOIN loans l ON i.loanId = l.id
+       LEFT JOIN customers c ON l.customerId = c.id
+       LEFT JOIN users u ON i.collectedBy = u.id
+       WHERE i.loanId IN (${placeholders})
+       AND i.dueAt >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
+       AND i.dueAt <= CURDATE()
+       ORDER BY i.dueAt DESC, i.loanId`;
+    
+    const params = [...loanIds, days - 1]; // days - 1 because we want to include today
+    
+    const [rows] = await pool.query(query, params);
+    return rows;
+  }
+
   // Create new installment
   static async create(installmentData) {
-    const { loanId, tenantId, date, amount, status = 'PENDING', collectedBy = null, collectedAt = null } = installmentData;
+    const { loanId, tenantId, dueAt, amount, remainAmount, cashInHand, cashInOnline, status = 'MISSED', collectedBy, nextDue } = installmentData;
     const [result] = await pool.query(
-      'INSERT INTO installments (loanId, tenantId, date, amount, status, collectedBy, collectedAt) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [loanId, tenantId, date, amount, status, collectedBy, collectedAt]
+      'INSERT INTO installments (loanId, tenantId, dueAt, amount, remainAmount, cashInHand, cashInOnline, status, collectedBy, nextDue) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [loanId, tenantId, dueAt, amount, remainAmount, cashInHand, cashInOnline, status, collectedBy, nextDue]
     );
     return result.insertId;
   }
 
   // Update installment
   static async update(id, installmentData) {
-    const { loanId, tenantId, date, amount, status, collectedBy, collectedAt } = installmentData;
+    const { loanId, tenantId, dueAt, amount, remainAmount, cashInHand, cashInOnline, status, collectedBy, nextDue } = installmentData;
     const [result] = await pool.query(
-      'UPDATE installments SET loanId = ?, tenantId = ?, date = ?, amount = ?, status = ?, collectedBy = ?, collectedAt = ? WHERE id = ?',
-      [loanId, tenantId, date, amount, status, collectedBy, collectedAt, id]
+      'UPDATE installments SET loanId = ?, tenantId = ?, dueAt = ?, amount = ?, remainAmount = ?, cashInHand = ?, cashInOnline = ?, status = ?, collectedBy = ?, nextDue = ? WHERE id = ?',
+      [loanId, tenantId, dueAt, amount, remainAmount, cashInHand, cashInOnline, status, collectedBy, nextDue, id]
     );
     return result.affectedRows;
   }
 
   // Mark installment as paid
-  static async markAsPaid(id, userId) {
+  static async markAsPaid(id, cashInHand, cashInOnline, userId) {
     const [result] = await pool.query(
-      'UPDATE installments SET status = ?, collectedBy = ?, collectedAt = CURRENT_TIMESTAMP WHERE id = ?',
-      ['PAID', userId, id]
+      'UPDATE installments SET status = ?, cashInHand = ?, cashInOnline = ?, remainAmount = 0, collectedBy = ? WHERE id = ?',
+      ['PAID', cashInHand, cashInOnline, userId, id]
+    );
+    return result.affectedRows;
+  }
+
+  // Mark installment as partially paid
+  static async markAsPartiallyPaid(id, cashInHand, cashInOnline, remainAmount, userId) {
+    const [result] = await pool.query(
+      'UPDATE installments SET status = ?, cashInHand = ?, cashInOnline = ?, remainAmount = ?, collectedBy = ? WHERE id = ?',
+      ['PARTIALLY', cashInHand, cashInOnline, remainAmount, userId, id]
     );
     return result.affectedRows;
   }
@@ -204,7 +257,9 @@ class InstallmentModel {
 
   // Get installments by customer (through loan)
   static async findByCustomerId(customerId, tenantId = null) {
-    let query = `SELECT i.id, i.loanId, i.tenantId, i.date, i.amount, i.status,
+    let query = `SELECT i.id, i.loanId, i.tenantId, 
+              DATE_FORMAT(i.date, '%Y-%m-%d') as date, 
+              i.amount, i.status,
               i.collectedBy, i.collectedAt, i.createdAt,
               t.name as tenantName, l.principal as loanPrincipal,
               c.name as customerName, c.phoneNumber as customerPhone,
@@ -227,6 +282,26 @@ class InstallmentModel {
     
     const [rows] = await pool.query(query, params);
     return rows;
+  }
+
+  // Get total collected amount by date range
+  static async getTotalCollectedByDateRange(fromDate, toDate, tenantId = null) {
+    let query = `SELECT 
+              COALESCE(SUM(cashInHand), 0) as totalCashInHand,
+              COALESCE(SUM(cashInOnline), 0) as totalCashInOnline,
+              COALESCE(SUM(cashInHand + cashInOnline), 0) as totalCollected
+       FROM installments
+       WHERE DATE(dueAt) >= ? AND DATE(dueAt) <= ?`;
+    
+    let params = [fromDate, toDate];
+    
+    if (tenantId) {
+      query += ' AND tenantId = ?';
+      params.push(tenantId);
+    }
+    
+    const [rows] = await pool.query(query, params);
+    return rows[0];
   }
 }
 

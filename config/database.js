@@ -1,6 +1,6 @@
 const mysql = require('mysql2');
 require('dotenv').config();
-
+const fs = require('fs');
 // Create a connection pool
 const pool = mysql.createPool({
   host: process.env.DB_HOST,
@@ -10,7 +10,10 @@ const pool = mysql.createPool({
   port: process.env.DB_PORT,
   waitForConnections: true,
   connectionLimit: 10,
-  queueLimit: 0
+  queueLimit: 0,
+  ssl: {
+        ca: fs.readFileSync('./config/ca.pem')
+    }
 });
 
 // Get promise-based connection

@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS loanType (
   interest INT NOT NULL,
   initialDeduction INT NOT NULL,
   nilCalculation INT NOT NULL,
+  isInterestPreDetection BOOLEAN NOT NULL DEFAULT 0,
   isActive BIT DEFAULT 1,
   createdAt DATE DEFAULT (CURDATE()),
   FOREIGN KEY (tenantId) REFERENCES tenants(id),
@@ -14,13 +15,13 @@ CREATE TABLE IF NOT EXISTS loanType (
 );
 
 -- Insert sample loan types
-INSERT INTO loanType (tenantId, collectionType, collectionPeriod, interest, initialDeduction, nilCalculation, isActive) VALUES
-  (1, 'Daily', 1, 10, 5, 2, 1),
-  (1, 'Weekly', 7, 15, 10, 3, 1),
-  (1, 'Monthly', 30, 20, 15, 5, 1),
-  (2, 'Daily', 1, 12, 8, 2, 1),
-  (2, 'Bi-Weekly', 14, 18, 12, 4, 1),
-  (3, 'Monthly', 30, 25, 20, 5, 1);
+INSERT INTO loanType (tenantId, collectionType, collectionPeriod, interest, initialDeduction, nilCalculation, isInterestPreDetection, isActive) VALUES
+  (1, 'Daily', 1, 10, 5, 2, 1, 1),
+  (1, 'Weekly', 7, 15, 10, 3, 0, 1),
+  (1, 'Monthly', 30, 20, 15, 5, 1, 1),
+  (2, 'Daily', 1, 12, 8, 2, 1, 1),
+  (2, 'Bi-Weekly', 14, 18, 12, 4, 0, 1),
+  (3, 'Monthly', 30, 25, 20, 5, 1, 1);
 
 -- Display loan types
 SELECT * FROM loanType;

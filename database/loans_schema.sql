@@ -13,6 +13,8 @@ CREATE TABLE IF NOT EXISTS loans (
   endDate DATE NOT NULL,
   installmentAmount DECIMAL(15,2) NOT NULL,
   initialDeduction INT NOT NULL,
+  totalAmount DECIMAL(15,2) NOT NULL,
+  balanceAmount DECIMAL(15,2) NOT NULL,
   isActive BIT DEFAULT 1,
   status ENUM('ONGOING','COMPLETED','PENDING','NIL') DEFAULT 'ONGOING',
   createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -27,11 +29,11 @@ CREATE TABLE IF NOT EXISTS loans (
 );
 
 -- Insert sample loans
-INSERT INTO loans (tenantId, customerId, principal, interest, disbursedAmount, loanTypeId, lineTypeId, totalInstallment, startDate, endDate, installmentAmount, initialDeduction, isActive, status) VALUES
-  (1, 1, 10000.00, 1500.00, 11500.00, 1, 1, 30, CURDATE(), DATE_ADD(CURDATE(), INTERVAL 30 DAY), 383.33, 500, 1, 'ONGOING'),
-  (1, 1, 5000.00, 500.00, 5500.00, 2, 2, 7, CURDATE(), DATE_ADD(CURDATE(), INTERVAL 7 DAY), 785.71, 250, 1, 'ONGOING'),
-  (1, 2, 20000.00, 3000.00, 23000.00, 1, 1, 90, CURDATE(), DATE_ADD(CURDATE(), INTERVAL 90 DAY), 766.67, 1000, 1, 'ONGOING'),
-  (2, 3, 15000.00, 2250.00, 17250.00, 1, 3, 30, CURDATE(), DATE_ADD(CURDATE(), INTERVAL 30 DAY), 575.00, 750, 1, 'PENDING');
+INSERT INTO loans (tenantId, customerId, principal, interest, disbursedAmount, loanTypeId, lineTypeId, totalInstallment, startDate, endDate, installmentAmount, initialDeduction, totalAmount, balanceAmount, isActive, status) VALUES
+  (1, 1, 10000.00, 1500.00, 11500.00, 1, 1, 30, CURDATE(), DATE_ADD(CURDATE(), INTERVAL 30 DAY), 383.33, 500, 11500.00, 11500.00, 1, 'ONGOING'),
+  (1, 1, 5000.00, 500.00, 5500.00, 2, 2, 7, CURDATE(), DATE_ADD(CURDATE(), INTERVAL 7 DAY), 785.71, 250, 5500.00, 5500.00, 1, 'ONGOING'),
+  (1, 2, 20000.00, 3000.00, 23000.00, 1, 1, 90, CURDATE(), DATE_ADD(CURDATE(), INTERVAL 90 DAY), 766.67, 1000, 23000.00, 23000.00, 1, 'ONGOING'),
+  (2, 3, 15000.00, 2250.00, 17250.00, 1, 3, 30, CURDATE(), DATE_ADD(CURDATE(), INTERVAL 30 DAY), 575.00, 750, 17250.00, 17250.00, 1, 'PENDING');
 
 -- Display loans
 SELECT * FROM loans;

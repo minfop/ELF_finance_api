@@ -12,8 +12,13 @@ const { authenticateToken, checkRoleByName } = require('../middleware/authMiddle
  *       required:
  *         - loanId
  *         - tenantId
- *         - date
+ *         - dueAt
  *         - amount
+ *         - remainAmount
+ *         - cashInHand
+ *         - cashInOnline
+ *         - status
+ *         - collectedBy
  *       properties:
  *         id:
  *           type: integer
@@ -23,28 +28,44 @@ const { authenticateToken, checkRoleByName } = require('../middleware/authMiddle
  *           description: Loan ID
  *         tenantId:
  *           type: integer
- *           description: Tenant ID
- *         date:
+ *           description: Tenant ID (from token)
+ *         dueAt:
  *           type: string
  *           format: date
- *           description: Installment due date
- *           example: "2025-01-08"
+ *           description: Installment due date (system date)
+ *           example: "2025-10-15"
  *         amount:
  *           type: number
  *           format: decimal
  *           description: Installment amount
- *           example: 383.33
+ *           example: 1000.00
+ *         remainAmount:
+ *           type: number
+ *           format: decimal
+ *           description: Remaining amount to be paid (auto-calculated)
+ *           example: 0.00
+ *         cashInHand:
+ *           type: number
+ *           format: decimal
+ *           description: Cash payment received
+ *           example: 600.00
+ *         cashInOnline:
+ *           type: number
+ *           format: decimal
+ *           description: Online payment received
+ *           example: 400.00
  *         status:
  *           type: string
- *           enum: [PENDING, PAID, MISSED]
- *           description: Installment status
+ *           enum: [PAID, MISSED, PARTIALLY]
+ *           description: Installment status (auto-calculated)
  *         collectedBy:
  *           type: integer
- *           description: User ID who collected payment
- *         collectedAt:
+ *           description: User ID who collected payment (from token)
+ *         nextDue:
  *           type: string
  *           format: date-time
- *           description: Payment collection timestamp
+ *           description: Next due date (auto-calculated based on loan type)
+ *           example: "2025-10-16T00:00:00"
  *         createdAt:
  *           type: string
  *           format: date-time
@@ -64,14 +85,20 @@ const { authenticateToken, checkRoleByName } = require('../middleware/authMiddle
  *       example:
  *         id: 1
  *         loanId: 1
- *         tenantId: 1
- *         date: "2025-01-08"
- *         amount: 383.33
+ *         tenantId: 7
+ *         dueAt: "2025-10-15"
+ *         amount: 1000.00
+ *         remainAmount: 0.00
+ *         cashInHand: 600.00
+ *         cashInOnline: 400.00
  *         status: "PAID"
- *         collectedBy: 1
- *         collectedAt: "2025-01-08T10:00:00"
+ *         collectedBy: 9
+ *         nextDue: "2025-10-16T00:00:00"
+ *         createdAt: "2025-10-15T10:00:00"
  *         tenantName: "ABC Company"
  *         customerName: "John Doe"
+ *         customerPhone: "+1234567890"
+ *         collectedByName: "Jane Smith"
  */
 
 /**
@@ -279,7 +306,24 @@ router.get('/:id',
  *   post:
  *     summary: Create installment
  *     tags: [Installments]
- *     description: Create a new installment (Admin/Manager/Collectioner can create)
+ *     description: |
+ *       Create a new installment for a loan. 
+ *       
+ *       **User provides:**
+ *       - loanId (required)
+ *       - amount (required) 
+ *       - cashInHand (optional, defaults to 0)
+ *       - cashInOnline (optional, defaults to 0)
+ *       
+ *       **Auto-generated/calculated:**
+ *       - tenantId (from token)
+ *       - collectedBy (from token)
+ *       - status (PAID/PARTIALLY/MISSED based on payment)
+ *       - dueAt (system date)
+ *       - remainAmount (amount - cashInHand - cashInOnline)
+ *       - nextDue (calculated from loan type)
+ *       
+ *       **Note:** Only one installment per loan per date. If installment exists for today, it will be updated.
  *     security:
  *       - BearerAuth: []
  *     requestBody:
@@ -290,23 +334,27 @@ router.get('/:id',
  *             type: object
  *             required:
  *               - loanId
- *               - date
  *               - amount
  *             properties:
  *               loanId:
  *                 type: integer
+ *                 description: ID of the loan
  *                 example: 1
- *               date:
- *                 type: string
- *                 format: date
- *                 example: "2025-01-08"
  *               amount:
  *                 type: number
- *                 example: 383.33
- *               status:
- *                 type: string
- *                 enum: [PENDING, PAID, MISSED]
- *                 example: "PENDING"
+ *                 format: decimal
+ *                 description: Installment amount
+ *                 example: 1000.00
+ *               cashInHand:
+ *                 type: number
+ *                 format: decimal
+ *                 description: Cash payment (defaults to 0)
+ *                 example: 600.00
+ *               cashInOnline:
+ *                 type: number
+ *                 format: decimal
+ *                 description: Online payment (defaults to 0)
+ *                 example: 400.00
  *     responses:
  *       201:
  *         description: Installment created
@@ -327,7 +375,20 @@ router.post('/',
  *   put:
  *     summary: Update installment
  *     tags: [Installments]
- *     description: Update installment details (Admin/Manager/Collectioner can edit)
+ *     description: |
+ *       Update installment payment details.
+ *       
+ *       **User can update:**
+ *       - amount (optional)
+ *       - cashInHand (optional)
+ *       - cashInOnline (optional)
+ *       
+ *       **Cannot be updated:**
+ *       - status (auto-calculated based on payment)
+ *       - tenantId (immutable)
+ *       - loanId (immutable)
+ *       - collectedBy (immutable)
+ *       - dueAt (immutable)
  *     security:
  *       - BearerAuth: []
  *     parameters:
@@ -343,14 +404,21 @@ router.post('/',
  *           schema:
  *             type: object
  *             properties:
- *               date:
- *                 type: string
- *                 format: date
  *               amount:
  *                 type: number
- *               status:
- *                 type: string
- *                 enum: [PENDING, PAID, MISSED]
+ *                 format: decimal
+ *                 description: Installment amount
+ *                 example: 1000.00
+ *               cashInHand:
+ *                 type: number
+ *                 format: decimal
+ *                 description: Cash payment
+ *                 example: 700.00
+ *               cashInOnline:
+ *                 type: number
+ *                 format: decimal
+ *                 description: Online payment
+ *                 example: 300.00
  *     responses:
  *       200:
  *         description: Installment updated
@@ -369,7 +437,18 @@ router.put('/:id',
  *   patch:
  *     summary: Mark installment as paid
  *     tags: [Installments]
- *     description: Mark an installment as paid (Admin/Manager/Collectioner can mark)
+ *     description: |
+ *       Mark an existing installment as fully paid. Updates status to 'PAID'.
+ *       
+ *       **User provides:**
+ *       - cashInHand (optional, defaults to 0)
+ *       - cashInOnline (optional, defaults to 0)
+ *       
+ *       **Auto-updated:**
+ *       - status = 'PAID'
+ *       - remainAmount = 0
+ *       - collectedBy (from token)
+ *       - Loan balanceAmount recalculated
  *     security:
  *       - BearerAuth: []
  *     parameters:
@@ -378,6 +457,23 @@ router.put('/:id',
  *         required: true
  *         schema:
  *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               cashInHand:
+ *                 type: number
+ *                 format: decimal
+ *                 description: Cash payment received
+ *                 example: 600.00
+ *               cashInOnline:
+ *                 type: number
+ *                 format: decimal
+ *                 description: Online payment received
+ *                 example: 400.00
  *     responses:
  *       200:
  *         description: Installment marked as paid
@@ -394,11 +490,22 @@ router.patch('/:id/pay',
 
 /**
  * @swagger
- * /api/installments/{id}/missed:
+ * /api/installments/{id}/partial:
  *   patch:
- *     summary: Mark installment as missed
+ *     summary: Mark installment as partially paid
  *     tags: [Installments]
- *     description: Mark an installment as missed (Admin/Manager/Collectioner can mark)
+ *     description: |
+ *       Mark an existing installment as partially paid. Updates status to 'PARTIALLY'.
+ *       
+ *       **User provides:**
+ *       - cashInHand (optional, defaults to 0)
+ *       - cashInOnline (optional, defaults to 0)
+ *       
+ *       **Auto-updated:**
+ *       - status = 'PARTIALLY'
+ *       - remainAmount = amount - (cashInHand + cashInOnline)
+ *       - collectedBy (from token)
+ *       - Loan balanceAmount recalculated
  *     security:
  *       - BearerAuth: []
  *     parameters:
@@ -407,13 +514,79 @@ router.patch('/:id/pay',
  *         required: true
  *         schema:
  *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               cashInHand:
+ *                 type: number
+ *                 format: decimal
+ *                 description: Cash payment received
+ *                 example: 300.00
+ *               cashInOnline:
+ *                 type: number
+ *                 format: decimal
+ *                 description: Online payment received
+ *                 example: 200.00
  *     responses:
  *       200:
- *         description: Installment marked as missed
+ *         description: Installment marked as partially paid
+ *       400:
+ *         description: Invalid payment amount or already paid
  *       404:
  *         description: Installment not found
  */
-router.patch('/:id/missed', 
+router.patch('/:id/partial', 
+  authenticateToken, 
+  checkRoleByName(['admin', 'manager', 'collectioner']), 
+  installmentController.markAsPartiallyPaid.bind(installmentController)
+);
+
+/**
+ * @swagger
+ * /api/installments/missed:
+ *   post:
+ *     summary: Create installment with MISSED status
+ *     tags: [Installments]
+ *     description: Create a new installment row for a missed payment. Amount, cashInHand, cashInOnline will be 0, status will be MISSED (Admin/Manager/Collectioner can create)
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - loanId
+ *             properties:
+ *               loanId:
+ *                 type: integer
+ *                 description: ID of the loan
+ *                 example: 1
+ *     responses:
+ *       201:
+ *         description: Installment created with MISSED status
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   $ref: '#/components/schemas/Installment'
+ *       400:
+ *         description: Invalid request
+ *       404:
+ *         description: Loan not found
+ */
+router.post('/missed', 
   authenticateToken, 
   checkRoleByName(['admin', 'manager', 'collectioner']), 
   installmentController.markAsMissed.bind(installmentController)

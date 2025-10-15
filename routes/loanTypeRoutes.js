@@ -15,6 +15,7 @@ const { authenticateToken, checkRoleByName } = require('../middleware/authMiddle
  *         - interest
  *         - initialDeduction
  *         - nilCalculation
+ *         - isInterestPreDetection
  *       properties:
  *         id:
  *           type: integer
@@ -39,6 +40,10 @@ const { authenticateToken, checkRoleByName } = require('../middleware/authMiddle
  *           type: integer
  *           description: NIL calculation value
  *           example: 2
+ *         isInterestPreDetection:
+ *           type: boolean
+ *           description: Whether interest should be deducted before disbursement
+ *           example: true
  *         isActive:
  *           type: boolean
  *           description: Active status
@@ -57,6 +62,7 @@ const { authenticateToken, checkRoleByName } = require('../middleware/authMiddle
  *         interest: 10
  *         initialDeduction: 5
  *         nilCalculation: 2
+ *         isInterestPreDetection: true
  *         isActive: true
  *         createdAt: "2025-01-08"
  *         tenantName: "ABC Company"
@@ -187,6 +193,7 @@ router.get('/:id',
  *               - interest
  *               - initialDeduction
  *               - nilCalculation
+ *               - isInterestPreDetection
  *             properties:
  *               collectionType:
  *                 type: string
@@ -208,6 +215,10 @@ router.get('/:id',
  *                 type: integer
  *                 description: NIL calculation value
  *                 example: 2
+ *               isInterestPreDetection:
+ *                 type: boolean
+ *                 description: Whether interest should be deducted before disbursement (true = deduct, false = don't deduct)
+ *                 example: true
  *     responses:
  *       201:
  *         description: Loan type created
@@ -252,6 +263,8 @@ router.post('/',
  *                 type: integer
  *               nilCalculation:
  *                 type: integer
+ *               isInterestPreDetection:
+ *                 type: boolean
  *               isActive:
  *                 type: boolean
  *     responses:

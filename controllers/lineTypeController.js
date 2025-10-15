@@ -49,6 +49,25 @@ class LineTypeController {
     }
   }
 
+  // Get line types by user access within tenant
+  async getLineTypesByUser(req, res) {
+    try {
+      const { tenantId, userId } = req.user;
+      const result = await lineTypeService.getLineTypesByUser(tenantId, userId);
+
+      if (!result.success) {
+        return res.status(400).json(result);
+      }
+
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: error.message
+      });
+    }
+  }
+
   // Create line type
   async createLineType(req, res) {
     try {

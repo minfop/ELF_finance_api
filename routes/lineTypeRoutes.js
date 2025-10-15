@@ -126,6 +126,38 @@ router.get('/active',
 
 /**
  * @swagger
+ * /api/line-types/by-user:
+ *   get:
+ *     summary: Get line types accessible by the current user within their tenant
+ *     tags: [Line Types]
+ *     description: Returns line types only when accessUsersId contains current userId. If accessUsersId is null/empty, the line type is NOT returned.
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of accessible line types
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/LineType'
+ *       401:
+ *         description: Unauthorized
+ */
+router.get('/by-user',
+  authenticateToken,
+  checkRoleByName(['admin', 'manager', 'collectioner']),
+  lineTypeController.getLineTypesByUser.bind(lineTypeController)
+);
+
+/**
+ * @swagger
  * /api/line-types/{id}:
  *   get:
  *     summary: Get line type by ID

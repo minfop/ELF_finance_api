@@ -135,6 +135,13 @@ class LoanTypeService {
         };
       }
 
+      if (loanTypeData.isInterestPreDetection === undefined || loanTypeData.isInterestPreDetection === null) {
+        return {
+          success: false,
+          message: 'Interest pre-detection flag is required'
+        };
+      }
+
       const loanTypeId = await LoanTypeModel.create(loanTypeData);
       const newLoanType = await LoanTypeModel.findById(loanTypeId);
 

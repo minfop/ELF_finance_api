@@ -40,6 +40,7 @@ class InstallmentController {
     try {
       const { loanId } = req.params;
       const { tenantId } = req.user;
+      console.log('getintllalsa', loanId, tenantId);
       const result = await installmentService.getInstallmentsByLoan(loanId, tenantId);
       res.json(result);
     } catch (error) {
@@ -125,12 +126,26 @@ class InstallmentController {
   // Create installment
   async createInstallment(req, res) {
     try {
-      const { tenantId } = req.user;
+      const { tenantId, userId } = req.user;
       
-      // Always use tenantId from token, ignore from body
-      req.body.tenantId = tenantId;
+      // Extract user inputs
+      const { loanId, amount, cashInHand, cashInOnline } = req.body;
+      
+      // Build clean request data
+      const installmentData = {
+        loanId,
+        amount,
+        cashInHand: cashInHand || 0,  // Default to 0 if not provided
+        cashInOnline: cashInOnline || 0,  // Default to 0 if not provided
+        tenantId,  // From token
+        collectedBy: userId  // From token
+        // status is auto-calculated, not from user
+        // dueAt is system date, not from user
+        // remainAmount is auto-calculated, not from user
+        // nextDue is auto-calculated, not from user
+      };
 
-      const result = await installmentService.createInstallment(req.body);
+      const result = await installmentService.createInstallment(installmentData);
 
       if (!result.success) {
         return res.status(400).json(result);
@@ -151,11 +166,27 @@ class InstallmentController {
       const { id } = req.params;
       const { tenantId } = req.user;
       
-      // Remove tenantId and loanId from body to prevent changes
-      delete req.body.tenantId;
-      delete req.body.loanId;
+      // Extract user inputs (only allow updating payment details)
+      const { amount, cashInHand, cashInOnline } = req.body;
       
-      const result = await installmentService.updateInstallment(id, req.body, tenantId);
+      // Build clean update data
+      const updateData = {
+        amount,
+        cashInHand: cashInHand !== undefined ? cashInHand : undefined,
+        cashInOnline: cashInOnline !== undefined ? cashInOnline : undefined
+        // status is auto-calculated, not from user
+        // tenantId cannot be changed
+        // loanId cannot be changed
+        // collectedBy cannot be changed
+        // dueAt cannot be changed
+      };
+      
+      // Remove undefined values
+      Object.keys(updateData).forEach(key => 
+        updateData[key] === undefined && delete updateData[key]
+      );
+      
+      const result = await installmentService.updateInstallment(id, updateData, tenantId);
 
       if (!result.success) {
         return res.status(404).json(result);
@@ -175,7 +206,9 @@ class InstallmentController {
     try {
       const { id } = req.params;
       const { userId, tenantId } = req.user;
-      const result = await installmentService.markAsPaid(id, userId, tenantId);
+      const { cashInHand, cashInOnline } = req.body;
+      
+      const result = await installmentService.markAsPaid(id, cashInHand, cashInOnline, userId, tenantId);
 
       if (!result.success) {
         return res.status(400).json(result);
@@ -190,18 +223,55 @@ class InstallmentController {
     }
   }
 
-  // Mark installment as missed
-  async markAsMissed(req, res) {
+  // Mark installment as partially paid
+  async markAsPartiallyPaid(req, res) {
     try {
       const { id } = req.params;
-      const { tenantId } = req.user;
-      const result = await installmentService.markAsMissed(id, tenantId);
+      const { userId, tenantId } = req.user;
+      const { cashInHand, cashInOnline } = req.body;
+      
+      const result = await installmentService.markAsPartiallyPaid(id, cashInHand, cashInOnline, userId, tenantId);
 
       if (!result.success) {
         return res.status(400).json(result);
       }
 
       res.json(result);
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: error.message
+      });
+    }
+  }
+
+  // Mark installment as missed (creates new installment row with MISSED status)
+  async markAsMissed(req, res) {
+    try {
+      const { tenantId, userId } = req.user;
+      const { loanId } = req.body;
+      
+      // Build installment data for MISSED payment
+      const installmentData = {
+        loanId,
+        tenantId,  // From token
+        collectedBy: userId  // From token
+        // amount will be fetched from loan's installmentAmount in service
+        // cashInHand = 0 (no payment)
+        // cashInOnline = 0 (no payment)
+        // remainAmount will equal amount
+        // status = 'MISSED'
+        // dueAt is system date
+        // nextDue is auto-calculated
+      };
+      
+      const result = await installmentService.markAsMissed(installmentData);
+
+      if (!result.success) {
+        return res.status(400).json(result);
+      }
+
+      res.status(201).json(result);
     } catch (error) {
       res.status(500).json({
         success: false,

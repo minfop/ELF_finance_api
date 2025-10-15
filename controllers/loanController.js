@@ -79,6 +79,26 @@ class LoanController {
     }
   }
 
+  // Get loans by line type (with access control)
+  async getLoansByLineType(req, res) {
+    try {
+      const { lineTypeId } = req.params;
+      const { userId, tenantId } = req.user;
+      const result = await loanService.getLoansByLineType(lineTypeId, userId, tenantId);
+      
+      if (!result.success) {
+        return res.status(403).json(result);
+      }
+      
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: error.message
+      });
+    }
+  }
+
   // Get loan statistics
   async getLoanStats(req, res) {
     try {
@@ -93,15 +113,36 @@ class LoanController {
     }
   }
 
+  // Get analytics data by date range
+  async getDateRangeAnalytics(req, res) {
+    try {
+      const { fromDate, toDate } = req.query;
+      const { userId, tenantId } = req.user;
+      
+      const result = await loanService.getDateRangeAnalytics(fromDate, toDate, userId, tenantId);
+      
+      if (!result.success) {
+        return res.status(400).json(result);
+      }
+      
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: error.message
+      });
+    }
+  }
+
   // Create loan
   async createLoan(req, res) {
     try {
-      const { tenantId } = req.user;
+      const { tenantId, userId } = req.user;
       
       // Always use tenantId from token, ignore from body
       req.body.tenantId = tenantId;
 
-      const result = await loanService.createLoan(req.body);
+      const result = await loanService.createLoan(req.body, userId);
 
       if (!result.success) {
         return res.status(400).json(result);

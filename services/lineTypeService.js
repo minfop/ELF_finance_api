@@ -42,6 +42,27 @@ class LineTypeService {
     }
   }
 
+  // Get line types accessible by user within tenant
+  async getLineTypesByUser(tenantId, userId) {
+    try {
+      if (!tenantId || !userId) {
+        return {
+          success: false,
+          message: 'tenantId and userId are required'
+        };
+      }
+
+      const lineTypes = await LineTypeModel.findByTenantAndUserAccess(tenantId, userId);
+
+      return {
+        success: true,
+        data: lineTypes
+      };
+    } catch (error) {
+      throw new Error(`Error fetching line types by user: ${error.message}`);
+    }
+  }
+
   // Get line type by ID
   async getLineTypeById(id, userTenantId = null) {
     try {

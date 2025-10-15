@@ -15,6 +15,8 @@ const loanTypeRoutes = require('./routes/loanTypeRoutes');
 const loanRoutes = require('./routes/loanRoutes');
 const installmentRoutes = require('./routes/installmentRoutes');
 const lineTypeRoutes = require('./routes/lineTypeRoutes');
+const expensesTypeRoutes = require('./routes/expensesTypeRoutes');
+const expensesRoutes = require('./routes/expensesRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -47,6 +49,8 @@ app.use('/api/loan-types', loanTypeRoutes);
 app.use('/api/loans', loanRoutes);
 app.use('/api/installments', installmentRoutes);
 app.use('/api/line-types', lineTypeRoutes);
+app.use('/api/expenses-types', expensesTypeRoutes);
+app.use('/api/expenses', expensesRoutes);
 
 // 404 handler
 app.use((req, res) => {

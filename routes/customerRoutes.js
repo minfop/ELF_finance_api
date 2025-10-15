@@ -33,6 +33,29 @@ const { authenticateToken, checkRoleByName } = require('../middleware/authMiddle
  *         documents:
  *           type: string
  *           description: Customer documents (JSON string or base64)
+ *         longitude:
+ *           type: number
+ *           format: decimal
+ *           description: Longitude coordinate (optional)
+ *         latitude:
+ *           type: number
+ *           format: decimal
+ *           description: Latitude coordinate (optional)
+ *         place:
+ *           type: string
+ *           description: Place/location name (optional)
+ *         identifyNumber:
+ *           type: string
+ *           description: Identification number (optional)
+ *         addidtionalMobile:
+ *           type: string
+ *           description: Additional mobile number (optional)
+ *         address:
+ *           type: string
+ *           description: Customer address (optional)
+ *         referenceById:
+ *           type: integer
+ *           description: Reference customer ID (optional, foreign key to customers.id)
  *         isActive:
  *           type: boolean
  *           description: Active status
@@ -43,6 +66,9 @@ const { authenticateToken, checkRoleByName } = require('../middleware/authMiddle
  *         tenantName:
  *           type: string
  *           description: Tenant name (from join)
+ *         referenceByName:
+ *           type: string
+ *           description: Reference customer name (from join)
  *       example:
  *         id: 1
  *         tenantId: 1
@@ -51,9 +77,17 @@ const { authenticateToken, checkRoleByName } = require('../middleware/authMiddle
  *         email: "john@example.com"
  *         photo: "base64_encoded_image_or_url"
  *         documents: "{\"id_card\":\"base64_string\",\"contract\":\"base64_string\"}"
+ *         longitude: 80.12345678
+ *         latitude: 6.12345678
+ *         place: "Colombo"
+ *         identifyNumber: "123456789V"
+ *         addidtionalMobile: "+9876543210"
+ *         address: "123 Main Street, Colombo"
+ *         referenceById: 2
  *         isActive: true
  *         createdAt: "2025-01-08"
  *         tenantName: "ABC Company"
+ *         referenceByName: "Jane Doe"
  */
 
 /**
@@ -156,6 +190,36 @@ router.get('/:id',
  *                 type: string
  *                 description: Documents (JSON string with document data)
  *                 example: "{\"id_card\":\"base64_data\",\"contract\":\"base64_data\"}"
+ *               longitude:
+ *                 type: number
+ *                 format: decimal
+ *                 description: Longitude coordinate (optional)
+ *                 example: 80.12345678
+ *               latitude:
+ *                 type: number
+ *                 format: decimal
+ *                 description: Latitude coordinate (optional)
+ *                 example: 6.12345678
+ *               place:
+ *                 type: string
+ *                 description: Place/location name (optional)
+ *                 example: "Colombo"
+ *               identifyNumber:
+ *                 type: string
+ *                 description: Identification number (optional)
+ *                 example: "123456789V"
+ *               addidtionalMobile:
+ *                 type: string
+ *                 description: Additional mobile number (optional)
+ *                 example: "+9876543210"
+ *               address:
+ *                 type: string
+ *                 description: Customer address (optional)
+ *                 example: "123 Main Street, Colombo"
+ *               referenceById:
+ *                 type: integer
+ *                 description: Reference customer ID (optional, foreign key to customers.id)
+ *                 example: 2
  *               isActive:
  *                 type: boolean
  *                 description: Active status
@@ -208,6 +272,36 @@ router.post('/',
  *               documents:
  *                 type: string
  *                 description: Documents (JSON string)
+ *               longitude:
+ *                 type: number
+ *                 format: decimal
+ *                 description: Longitude coordinate (optional)
+ *                 example: 80.12345678
+ *               latitude:
+ *                 type: number
+ *                 format: decimal
+ *                 description: Latitude coordinate (optional)
+ *                 example: 6.12345678
+ *               place:
+ *                 type: string
+ *                 description: Place/location name (optional)
+ *                 example: "Colombo"
+ *               identifyNumber:
+ *                 type: string
+ *                 description: Identification number (optional)
+ *                 example: "123456789V"
+ *               addidtionalMobile:
+ *                 type: string
+ *                 description: Additional mobile number (optional)
+ *                 example: "+9876543210"
+ *               address:
+ *                 type: string
+ *                 description: Customer address (optional)
+ *                 example: "123 Main Street, Colombo"
+ *               referenceById:
+ *                 type: integer
+ *                 description: Reference customer ID (optional, foreign key to customers.id)
+ *                 example: 2
  *               isActive:
  *                 type: boolean
  *                 description: Active status

@@ -1,4 +1,6 @@
 const InstallmentModel = require('../models/installmentModel');
+const LoanModel = require('../models/loanModel');
+const LoanTypeModel = require('../models/loanTypeModel');
 
 class InstallmentService {
   // Get all installments (with tenant filtering)
@@ -54,7 +56,7 @@ class InstallmentService {
   async getInstallmentsByLoan(loanId, userTenantId = null) {
     try {
       const installments = await InstallmentModel.findByLoanId(loanId);
-      
+      console.log('installments', installments);
       // Filter by tenant if specified
       let filteredInstallments;
       if (userTenantId) {
@@ -152,25 +154,11 @@ class InstallmentService {
   // Create installment
   async createInstallment(installmentData) {
     try {
-      // Validate required fields
+      // Validate required fields (from user input)
       if (!installmentData.loanId) {
         return {
           success: false,
           message: 'Loan ID is required'
-        };
-      }
-
-      if (!installmentData.tenantId) {
-        return {
-          success: false,
-          message: 'Tenant ID is required'
-        };
-      }
-
-      if (!installmentData.date) {
-        return {
-          success: false,
-          message: 'Date is required'
         };
       }
 
@@ -181,13 +169,144 @@ class InstallmentService {
         };
       }
 
-      const installmentId = await InstallmentModel.create(installmentData);
-      const newInstallment = await InstallmentModel.findById(installmentId);
+      if (installmentData.amount != (installmentData.cashInHand + installmentData.cashInOnline || 0)) {
+        return {
+          success: false,
+          message: 'Amount is be equal to sum of cashInHand and cashInOnline'
+        };
+      }
+
+      // cashInHand and cashInOnline are optional, default to 0
+      const cashInHand = parseFloat(installmentData.cashInHand || 0);
+      const cashInOnline = parseFloat(installmentData.cashInOnline || 0);
+      const amount = parseFloat(installmentData.amount);
+
+      // Calculate remainAmount: amount - (cashInHand + cashInOnline)
+      const totalPaid = cashInHand + cashInOnline;
+      const remainAmount = amount - totalPaid;
+
+      // Set dueAt to current date (system date)
+      const today = new Date();
+      const dueAt = today.toISOString().split('T')[0]; // YYYY-MM-DD format
+
+      // Get loan details to calculate nextDue
+      const loan = await LoanModel.findById(installmentData.loanId);
+      if (!loan) {
+        return {
+          success: false,
+          message: 'Loan not found'
+        };
+      }
+
+      // Verify tenant access
+      if (installmentData.tenantId && loan.tenantId !== installmentData.tenantId) {
+        return {
+          success: false,
+          message: 'Loan does not belong to this tenant'
+        };
+      }
+
+      // Get loan type to determine collection period
+      const loanType = await LoanTypeModel.findById(loan.loanTypeId);
+      if (!loanType) {
+        return {
+          success: false,
+          message: 'Loan type not found'
+        };
+      }
+
+      // Calculate nextDue based on collection type
+      const nextDueDate = new Date(today);
+      const collectionType = loanType.collectionType.toUpperCase();
+      const collectionPeriod = parseInt(loanType.collectionPeriod);
+
+      if (collectionType === 'DAILY') {
+        nextDueDate.setDate(nextDueDate.getDate() + collectionPeriod);
+      } else if (collectionType === 'WEEKLY') {
+        nextDueDate.setDate(nextDueDate.getDate() + (collectionPeriod * 7));
+      } else if (collectionType === 'MONTHLY') {
+        nextDueDate.setMonth(nextDueDate.getMonth() + collectionPeriod);
+      }
+
+      const nextDue = nextDueDate.toISOString().slice(0, 19).replace('T', ' '); // MySQL TIMESTAMP format
+
+      // Determine status based on payment
+      let status;
+      if (amount >= loan.installmentAmount) {
+        status = 'PAID';
+      } else if (amount > 0) {
+        status = 'PARTIALLY';
+      } else {
+        status = 'MISSED';
+      }
+
+      // Check if installment already exists for this loan and date
+      const existingInstallments = await InstallmentModel.findByLoanId(installmentData.loanId);
+      const existingInstallment = existingInstallments.find(inst => inst.dueAt === dueAt);
+
+      // Calculate total amount paid across all installments for this loan
+      let totalInstallmentsPaid = 0;
+      
+      if (existingInstallment) {
+        // If updating existing installment, exclude its previous payment from total
+        totalInstallmentsPaid = existingInstallments
+          .filter(inst => inst.id !== existingInstallment.id)
+          .reduce((sum, inst) => {
+            const paid = parseFloat(inst.cashInHand || 0) + parseFloat(inst.cashInOnline || 0);
+            return sum + paid;
+          }, 0);
+        // Add current payment
+        totalInstallmentsPaid += totalPaid;
+      } else {
+        // For new installment, sum all existing payments + current payment
+        totalInstallmentsPaid = existingInstallments.reduce((sum, inst) => {
+          const paid = parseFloat(inst.cashInHand || 0) + parseFloat(inst.cashInOnline || 0);
+          return sum + paid;
+        }, 0);
+        totalInstallmentsPaid += totalPaid;
+      }
+
+      // Update loan's balanceAmount: totalAmount - total of all installments paid
+      const newBalanceAmount = parseFloat(loan.totalAmount) - totalInstallmentsPaid;
+      await LoanModel.update(loan.id, {
+        ...loan,
+        balanceAmount: newBalanceAmount > 0 ? newBalanceAmount : 0
+      });
+
+      // Build complete installment data
+      const completeInstallmentData = {
+        loanId: installmentData.loanId,
+        tenantId: installmentData.tenantId,
+        dueAt: dueAt,
+        amount: amount,
+        remainAmount: newBalanceAmount > 0 ? newBalanceAmount : 0,
+        cashInHand: cashInHand,
+        cashInOnline: cashInOnline,
+        status: status,
+        collectedBy: installmentData.collectedBy,
+        nextDue: nextDue
+      };
+
+      let installmentId;
+      let message;
+      
+      if (existingInstallment) {
+        // Update existing installment
+        await InstallmentModel.update(existingInstallment.id, completeInstallmentData);
+        installmentId = existingInstallment.id;
+        message = 'Installment updated successfully';
+      } else {
+        // Create new installment
+        installmentId = await InstallmentModel.create(completeInstallmentData);
+        message = 'Installment created successfully';
+      }
+
+      const resultInstallment = await InstallmentModel.findById(installmentId);
 
       return {
         success: true,
-        message: 'Installment created successfully',
-        data: newInstallment
+        message: message,
+        data: resultInstallment
       };
     } catch (error) {
       throw new Error(`Error creating installment: ${error.message}`);
@@ -240,7 +359,7 @@ class InstallmentService {
   }
 
   // Mark installment as paid
-  async markAsPaid(id, userId, userTenantId = null) {
+  async markAsPaid(id, cashInHand, cashInOnline, userId, userTenantId = null) {
     try {
       const existingInstallment = await InstallmentModel.findById(id);
       
@@ -266,7 +385,31 @@ class InstallmentService {
         };
       }
 
-      await InstallmentModel.markAsPaid(id, userId);
+      // Update loan balance - recalculate from totalAmount
+      const loan = await LoanModel.findById(existingInstallment.loanId);
+      if (loan) {
+        // Get all installments for this loan
+        const allInstallments = await InstallmentModel.findByLoanId(loan.id);
+        
+        // Calculate total paid across all installments (excluding current one, will add new payment)
+        const totalInstallmentsPaid = allInstallments
+          .filter(inst => inst.id !== id)
+          .reduce((sum, inst) => {
+            const paid = parseFloat(inst.cashInHand || 0) + parseFloat(inst.cashInOnline || 0);
+            return sum + paid;
+          }, 0);
+        
+        // Add current payment
+        const currentPayment = parseFloat(cashInHand) + parseFloat(cashInOnline);
+        const newBalanceAmount = parseFloat(loan.totalAmount) - (totalInstallmentsPaid + currentPayment);
+        
+        await LoanModel.update(loan.id, {
+          ...loan,
+          balanceAmount: newBalanceAmount > 0 ? newBalanceAmount : 0
+        });
+      }
+
+      await InstallmentModel.markAsPaid(id, cashInHand, cashInOnline, userId);
       const updatedInstallment = await InstallmentModel.findById(id);
 
       return {
@@ -279,8 +422,8 @@ class InstallmentService {
     }
   }
 
-  // Mark installment as missed
-  async markAsMissed(id, userTenantId = null) {
+  // Mark installment as partially paid
+  async markAsPartiallyPaid(id, cashInHand, cashInOnline, userId, userTenantId = null) {
     try {
       const existingInstallment = await InstallmentModel.findById(id);
       
@@ -299,13 +442,180 @@ class InstallmentService {
         };
       }
 
-      await InstallmentModel.markAsMissed(id);
+      const totalPaid = parseFloat(cashInHand) + parseFloat(cashInOnline);
+      const remainAmount = parseFloat(existingInstallment.amount) - totalPaid;
+
+      if (remainAmount <= 0) {
+        return {
+          success: false,
+          message: 'Payment amount equals or exceeds installment amount. Use markAsPaid instead.'
+        };
+      }
+
+      // Update loan balance - recalculate from totalAmount
+      const loan = await LoanModel.findById(existingInstallment.loanId);
+      if (loan) {
+        // Get all installments for this loan
+        const allInstallments = await InstallmentModel.findByLoanId(loan.id);
+        
+        // Calculate total paid across all installments (excluding current one, will add new payment)
+        const totalInstallmentsPaid = allInstallments
+          .filter(inst => inst.id !== id)
+          .reduce((sum, inst) => {
+            const paid = parseFloat(inst.cashInHand || 0) + parseFloat(inst.cashInOnline || 0);
+            return sum + paid;
+          }, 0);
+        
+        // Add current payment
+        const currentPayment = parseFloat(cashInHand) + parseFloat(cashInOnline);
+        const newBalanceAmount = parseFloat(loan.totalAmount) - (totalInstallmentsPaid + currentPayment);
+        
+        await LoanModel.update(loan.id, {
+          ...loan,
+          balanceAmount: newBalanceAmount > 0 ? newBalanceAmount : 0
+        });
+      }
+
+      await InstallmentModel.markAsPartiallyPaid(id, cashInHand, cashInOnline, remainAmount, userId);
       const updatedInstallment = await InstallmentModel.findById(id);
 
       return {
         success: true,
-        message: 'Installment marked as missed successfully',
+        message: 'Installment marked as partially paid successfully',
         data: updatedInstallment
+      };
+    } catch (error) {
+      throw new Error(`Error marking installment as partially paid: ${error.message}`);
+    }
+  }
+
+  // Mark installment as missed (creates new installment row with MISSED status)
+  async markAsMissed(installmentData) {
+    try {
+      // Validate required fields
+      if (!installmentData.loanId) {
+        return {
+          success: false,
+          message: 'Loan ID is required'
+        };
+      }
+
+      // Get loan details
+      const loan = await LoanModel.findById(installmentData.loanId);
+      if (!loan) {
+        return {
+          success: false,
+          message: 'Loan not found'
+        };
+      }
+
+      // Check tenant access
+      if (installmentData.tenantId && loan.tenantId !== installmentData.tenantId) {
+        return {
+          success: false,
+          message: 'Access denied: Loan belongs to different tenant'
+        };
+      }
+
+      // Get loan type for nextDue calculation
+      const loanType = await LoanTypeModel.findById(loan.loanTypeId);
+      if (!loanType) {
+        return {
+          success: false,
+          message: 'Loan type not found'
+        };
+      }
+
+      const today = new Date();
+      const dueAt = today.toISOString().split('T')[0]; // YYYY-MM-DD format
+
+      // Calculate nextDue based on collection type
+      const nextDueDate = new Date(today);
+      const collectionType = loanType.collectionType.toUpperCase();
+      const collectionPeriod = parseInt(loanType.collectionPeriod);
+      
+      if (collectionType === 'DAILY') {
+        nextDueDate.setDate(nextDueDate.getDate() + collectionPeriod);
+      } else if (collectionType === 'WEEKLY') {
+        nextDueDate.setDate(nextDueDate.getDate() + (collectionPeriod * 7));
+      } else if (collectionType === 'MONTHLY') {
+        nextDueDate.setMonth(nextDueDate.getMonth() + collectionPeriod);
+      }
+      
+      const nextDue = nextDueDate.toISOString().slice(0, 19).replace('T', ' '); // MySQL TIMESTAMP format
+
+      // Get installment amount from loan
+      const amount = 0;
+      const cashInHand = 0;
+      const cashInOnline = 0;
+      //const remainAmount = amount; // No payment made, so remain equals amount
+      const totalPaid = cashInHand + cashInOnline;
+      // Check if installment already exists for this loan and date
+      const existingInstallments = await InstallmentModel.findByLoanId(installmentData.loanId);
+      const existingInstallment = existingInstallments.find(inst => inst.dueAt === dueAt);
+
+      // Calculate total amount paid across all installments for this loan
+      let totalInstallmentsPaid = 0;
+      
+      if (existingInstallment) {
+        // If updating existing installment, exclude its previous payment from total
+        totalInstallmentsPaid = existingInstallments
+          .filter(inst => inst.id !== existingInstallment.id)
+          .reduce((sum, inst) => {
+            const paid = parseFloat(inst.cashInHand || 0) + parseFloat(inst.cashInOnline || 0);
+            return sum + paid;
+          }, 0);
+        // Add current payment
+        totalInstallmentsPaid += totalPaid;
+      } else {
+        // For new installment, sum all existing payments + current payment
+        totalInstallmentsPaid = existingInstallments.reduce((sum, inst) => {
+          const paid = parseFloat(inst.cashInHand || 0) + parseFloat(inst.cashInOnline || 0);
+          return sum + paid;
+        }, 0);
+        totalInstallmentsPaid += totalPaid;
+      }
+
+      // Update loan's balanceAmount: totalAmount - total of all installments paid
+      const newBalanceAmount = parseFloat(loan.totalAmount) - totalInstallmentsPaid;
+      await LoanModel.update(loan.id, {
+        ...loan,
+        balanceAmount: newBalanceAmount > 0 ? newBalanceAmount : 0
+      });
+
+      const completeInstallmentData = {
+        loanId: installmentData.loanId,
+        tenantId: installmentData.tenantId,
+        dueAt: dueAt,
+        amount: amount,
+        remainAmount: newBalanceAmount > 0 ? newBalanceAmount : 0,
+        cashInHand: cashInHand,
+        cashInOnline: cashInOnline,
+        status: 'MISSED',
+        collectedBy: installmentData.collectedBy,
+        nextDue: nextDue
+      };
+
+      let installmentId;
+      let message;
+      
+      if (existingInstallment) {
+        // Update existing installment to MISSED status
+        await InstallmentModel.update(existingInstallment.id, completeInstallmentData);
+        installmentId = existingInstallment.id;
+        message = 'Installment updated to MISSED status';
+      } else {
+        // Create new installment with MISSED status
+        installmentId = await InstallmentModel.create(completeInstallmentData);
+        message = 'Installment created with MISSED status';
+      }
+
+      const resultInstallment = await InstallmentModel.findById(installmentId);
+      
+      return {
+        success: true,
+        message: message,
+        data: resultInstallment
       };
     } catch (error) {
       throw new Error(`Error marking installment as missed: ${error.message}`);
