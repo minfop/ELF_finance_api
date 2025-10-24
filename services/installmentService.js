@@ -652,6 +652,78 @@ class InstallmentService {
       throw new Error(`Error deleting installment: ${error.message}`);
     }
   }
+
+  // Get last 7 period totals by line type, respecting line type's collectionType
+  async getLast7TotalsByLineType(lineTypeId, userId, userTenantId) {
+    try {
+      if (!lineTypeId) {
+        return { success: false, message: 'lineTypeId is required' };
+      }
+
+      // Validate line type, tenant, and (if required) access users
+      const LineTypeModel = require('../models/lineTypeModel');
+      const LoanTypeModel = require('../models/loanTypeModel');
+      const lineType = await LineTypeModel.findById(lineTypeId);
+      if (!lineType) {
+        return { success: false, message: 'Line type not found' };
+      }
+      if (lineType.tenantId !== userTenantId) {
+        return { success: false, message: 'Access denied: Line type belongs to different tenant' };
+      }
+      // If accessUsersId is provided, enforce membership
+      if (lineType.accessUsersId && String(lineType.accessUsersId).trim().length > 0) {
+        const accessUserIds = String(lineType.accessUsersId)
+          .split(',')
+          .map(id => parseInt(id.trim()))
+          .filter(n => !Number.isNaN(n));
+        if (accessUserIds.length > 0 && !accessUserIds.includes(userId)) {
+          return { success: false, message: 'Access denied: You are not authorized for this line type' };
+        }
+      }
+
+      // Determine collection type from loan type
+      const loanType = await LoanTypeModel.findById(lineType.loanTypeId);
+      if (!loanType) {
+        return { success: false, message: 'Associated loan type not found' };
+      }
+      const collectionType = String(loanType.collectionType || '').toUpperCase();
+
+      let series = [];
+      if (collectionType === 'DAILY') {
+        series = await InstallmentModel.getDailyTotalsByLineTypeForLastNDays(lineTypeId, userTenantId, 7);
+        // Normalize to 7 entries (day -6 ... today), filling zeros when no data
+        const map = new Map(series.map(r => [r.periodDate, parseFloat(r.totalCollected) || 0]));
+        const today = new Date();
+        const result = [];
+        for (let i = 6; i >= 0; i--) {
+          const d = new Date(today);
+          d.setDate(today.getDate() - i);
+          const key = d.toISOString().slice(0, 10);
+          result.push({ label: key, total: map.get(key) || 0 });
+        }
+        return { success: true, data: { collectionType: 'DAILY', periods: result } };
+      } else if (collectionType === 'WEEKLY') {
+        series = await InstallmentModel.getWeeklyTotalsByLineTypeForLastNWeeks(lineTypeId, userTenantId, 7);
+        // Expect ascending oldest->newest; format label as weekStart..weekEnd
+        const result = series.map(r => ({
+          label: `${r.weekStart}..${r.weekEnd}`,
+          total: parseFloat(r.totalCollected) || 0
+        }));
+        return { success: true, data: { collectionType: 'WEEKLY', periods: result } };
+      } else if (collectionType === 'MONTHLY') {
+        series = await InstallmentModel.getMonthlyTotalsByLineTypeForLastNMonths(lineTypeId, userTenantId, 7);
+        const result = series.map(r => ({
+          label: r.monthStart,
+          total: parseFloat(r.totalCollected) || 0
+        }));
+        return { success: true, data: { collectionType: 'MONTHLY', periods: result } };
+      }
+
+      return { success: false, message: `Unsupported collection type: ${loanType.collectionType}` };
+    } catch (error) {
+      throw new Error(`Error fetching last 7 totals: ${error.message}`);
+    }
+  }
 }
 
 module.exports = new InstallmentService();

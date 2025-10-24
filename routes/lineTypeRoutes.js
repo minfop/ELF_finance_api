@@ -27,6 +27,11 @@ const { authenticateToken, checkRoleByName } = require('../middleware/authMiddle
  *           type: integer
  *           description: Loan type ID
  *           example: 1
+ *         investmentAmount:
+ *           type: number
+ *           format: decimal
+ *           description: Investment amount allocated to this line type
+ *           example: 100000.00
  *         isActive:
  *           type: boolean
  *           description: Active status
@@ -52,6 +57,7 @@ const { authenticateToken, checkRoleByName } = require('../middleware/authMiddle
  *         name: "Line Type A"
  *         tenantId: 1
  *         loanTypeId: 1
+ *         investmentAmount: 100000.00
  *         isActive: true
  *         accessUsersId: "1,2,3"
  *         createdAt: "2025-10-12T10:00:00Z"
@@ -213,6 +219,7 @@ router.get('/:id',
  *             required:
  *               - name
  *               - loanTypeId
+ *               - investmentAmount
  *             properties:
  *               name:
  *                 type: string
@@ -222,6 +229,11 @@ router.get('/:id',
  *                 type: integer
  *                 description: Loan type ID
  *                 example: 1
+ *               investmentAmount:
+ *                 type: number
+ *                 format: decimal
+ *                 description: Investment amount allocated to this line type
+ *                 example: 100000.00
  *               isActive:
  *                 type: boolean
  *                 description: Active status (default true)
@@ -270,6 +282,9 @@ router.post('/',
  *                 type: string
  *               loanTypeId:
  *                 type: integer
+ *               investmentAmount:
+ *                 type: number
+ *                 format: decimal
  *               isActive:
  *                 type: boolean
  *               accessUsersId:

@@ -259,10 +259,10 @@ class LoanService {
       // Fetch loans by lineTypeId
       const loans = await LoanModel.findByLineTypeId(lineTypeId, userTenantId);
       
-      // If loans exist, fetch installments for last 5 days (including today)
+      // If loans exist, fetch last 5 installments per loan (no date filter)
       if (loans && loans.length > 0) {
         const loanIds = loans.map(loan => loan.id);
-        const installments = await InstallmentModel.findByLoanIdsAndDateRange(loanIds, 5);
+        const installments = await InstallmentModel.findLastNByLoanIds(loanIds, 5);
         
         // Group installments by loanId
         const installmentsByLoanId = {};
@@ -376,7 +376,7 @@ class LoanService {
         },
         loans: {
           newLoanCount: loanAnalytics.newLoanCount || 0,
-          totalInvestment: parseFloat(loanAnalytics.totalInvestmentAmount) || 0,
+          totalInvestment: parseFloat(loanAnalytics.totalInvestment) || 0,
           totalPrincipal: parseFloat(loanAnalytics.totalPrincipal) || 0,
           totalDisbursedAmount: parseFloat(loanAnalytics.totalDisbursedAmount) || 0,
           totalInitialDeduction: parseFloat(loanAnalytics.totalInitialDeduction) || 0,

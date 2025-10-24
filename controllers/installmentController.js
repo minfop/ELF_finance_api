@@ -299,6 +299,24 @@ class InstallmentController {
       });
     }
   }
+
+  // Get last 7 period totals by lineTypeId
+  async getLast7TotalsByLineType(req, res) {
+    try {
+      const { tenantId, userId } = req.user;
+      const { lineTypeId } = req.query;
+      const result = await installmentService.getLast7TotalsByLineType(lineTypeId, userId, tenantId);
+      if (!result.success) {
+        return res.status(400).json(result);
+      }
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: error.message
+      });
+    }
+  }
 }
 
 module.exports = new InstallmentController();

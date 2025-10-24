@@ -275,6 +275,67 @@ router.get('/customer/:customerId',
 
 /**
  * @swagger
+ * /api/installments/last7:
+ *   get:
+ *     summary: Get last 7 period totals by line type
+ *     tags: [Installments]
+ *     description: |
+ *       Returns totals for the last 7 periods for a given lineTypeId.
+ *       The period resolution is determined by the line type's loan type collectionType:
+ *       - DAILY: last 7 days (including today)
+ *       - WEEKLY: last 7 ISO weeks (including current week)
+ *       - MONTHLY: last 7 months (including current month)
+ *       
+ *       Tenant and user are taken from the token. lineTypeId is required as a query parameter.
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: lineTypeId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Line type ID to filter installments
+ *         example: 1
+ *     responses:
+ *       200:
+ *         description: Last 7 period totals
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     collectionType:
+ *                       type: string
+ *                       enum: [DAILY, WEEKLY, MONTHLY]
+ *                     periods:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           label:
+ *                             type: string
+ *                             description: Period label (YYYY-MM-DD for daily, weekStart..weekEnd for weekly, YYYY-MM-01 for monthly)
+ *                           total:
+ *                             type: number
+ *                             format: decimal
+ *       400:
+ *         description: Invalid request or unauthorized for the line type
+ */
+router.get('/last7', 
+  authenticateToken, 
+  checkRoleByName(['admin', 'manager', 'collectioner']), 
+  installmentController.getLast7TotalsByLineType.bind(installmentController)
+);
+
+/**
+ * @swagger
  * /api/installments/{id}:
  *   get:
  *     summary: Get installment by ID

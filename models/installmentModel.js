@@ -308,6 +308,94 @@ class InstallmentModel {
     const [rows] = await pool.query(query, params);
     return rows[0];
   }
+
+	// Get daily totals by line type for the last N days (including today)
+	static async getDailyTotalsByLineTypeForLastNDays(lineTypeId, tenantId, days = 7) {
+		// include today and previous (days-1) days
+		const lookbackDays = Math.max(1, days - 1);
+		const [rows] = await pool.query(
+			`SELECT DATE(i.dueAt) as periodDate,
+					COALESCE(SUM(i.cashInHand + i.cashInOnline), 0) as totalCollected
+			 FROM installments i
+			 JOIN loans l ON i.loanId = l.id
+			 WHERE i.tenantId = ?
+			   AND l.lineTypeId = ?
+			   AND i.dueAt >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
+			   AND i.dueAt <= CURDATE()
+			 GROUP BY DATE(i.dueAt)
+			 ORDER BY periodDate ASC`,
+			[tenantId, lineTypeId, lookbackDays]
+		);
+		return rows;
+	}
+
+	// Get weekly totals by line type for the last N weeks (including current week, ISO week)
+	static async getWeeklyTotalsByLineTypeForLastNWeeks(lineTypeId, tenantId, weeks = 7) {
+		const [rows] = await pool.query(
+			`SELECT YEARWEEK(i.dueAt, 1) as yearWeek,
+					MIN(DATE(i.dueAt)) as weekStart,
+					MAX(DATE(i.dueAt)) as weekEnd,
+					COALESCE(SUM(i.cashInHand + i.cashInOnline), 0) as totalCollected
+			 FROM installments i
+			 JOIN loans l ON i.loanId = l.id
+			 WHERE i.tenantId = ?
+			   AND l.lineTypeId = ?
+			   AND YEARWEEK(i.dueAt, 1) BETWEEN YEARWEEK(DATE_SUB(CURDATE(), INTERVAL ? WEEK), 1) AND YEARWEEK(CURDATE(), 1)
+			 GROUP BY YEARWEEK(i.dueAt, 1)
+			 ORDER BY yearWeek ASC`,
+			[tenantId, lineTypeId, Math.max(0, weeks - 1)]
+		);
+		return rows;
+	}
+
+	// Get monthly totals by line type for the last N months (including current month)
+	static async getMonthlyTotalsByLineTypeForLastNMonths(lineTypeId, tenantId, months = 7) {
+		const [rows] = await pool.query(
+			`SELECT DATE_FORMAT(i.dueAt, '%Y-%m-01') as monthStart,
+					COALESCE(SUM(i.cashInHand + i.cashInOnline), 0) as totalCollected
+			 FROM installments i
+			 JOIN loans l ON i.loanId = l.id
+			 WHERE i.tenantId = ?
+			   AND l.lineTypeId = ?
+			   AND i.dueAt >= DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL ? MONTH), '%Y-%m-01')
+			   AND i.dueAt < DATE_ADD(DATE_FORMAT(CURDATE(), '%Y-%m-01'), INTERVAL 1 MONTH)
+			 GROUP BY DATE_FORMAT(i.dueAt, '%Y-%m-01')
+			 ORDER BY monthStart ASC`,
+			[tenantId, lineTypeId, Math.max(0, months - 1)]
+		);
+		return rows;
+	}
+
+	// Get last N installments per loan for a set of loanIds (no date filter)
+	static async findLastNByLoanIds(loanIds, n = 5) {
+		if (!loanIds || loanIds.length === 0) {
+			return [];
+		}
+		const placeholders = loanIds.map(() => '?').join(',');
+		const query = `
+			SELECT * FROM (
+				SELECT 
+					i.id, i.loanId, i.tenantId,
+					DATE_FORMAT(i.dueAt, '%Y-%m-%d') as dueAt,
+					i.amount, i.remainAmount, i.cashInHand, i.cashInOnline, i.status,
+					i.collectedBy, i.nextDue, i.createdAt,
+					t.name as tenantName, l.principal as loanPrincipal,
+					c.name as customerName, c.phoneNumber as customerPhone,
+					u.name as collectedByName,
+					ROW_NUMBER() OVER (PARTITION BY i.loanId ORDER BY i.dueAt DESC, i.id DESC) as rn
+				FROM installments i
+				LEFT JOIN tenants t ON i.tenantId = t.id
+				LEFT JOIN loans l ON i.loanId = l.id
+				LEFT JOIN customers c ON l.customerId = c.id
+				LEFT JOIN users u ON i.collectedBy = u.id
+				WHERE i.loanId IN (${placeholders})
+			) ranked
+			WHERE rn <= ?
+			ORDER BY loanId, dueAt DESC, id DESC`;
+		const params = [...loanIds, n];
+		const [rows] = await pool.query(query, params);
+		return rows;
+	}
 }
 
 module.exports = InstallmentModel;
