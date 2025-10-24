@@ -17,8 +17,8 @@ class LoanModel {
        FROM loans l
        LEFT JOIN tenants t ON l.tenantId = t.id
        LEFT JOIN customers c ON l.customerId = c.id
-       LEFT JOIN loanType lt ON l.loanTypeId = lt.id
-       LEFT JOIN lineType lnt ON l.lineTypeId = lnt.id
+       LEFT JOIN loantype lt ON l.loanTypeId = lt.id
+       LEFT JOIN linetype lnt ON l.lineTypeId = lnt.id
        ORDER BY l.createdAt DESC`
     );
     return rows;
@@ -41,8 +41,8 @@ class LoanModel {
        FROM loans l
        LEFT JOIN tenants t ON l.tenantId = t.id
        LEFT JOIN customers c ON l.customerId = c.id
-       LEFT JOIN loanType lt ON l.loanTypeId = lt.id
-       LEFT JOIN lineType lnt ON l.lineTypeId = lnt.id
+       LEFT JOIN loantype lt ON l.loanTypeId = lt.id
+       LEFT JOIN linetype lnt ON l.lineTypeId = lnt.id
        WHERE l.id = ?`,
       [id]
     );
@@ -65,8 +65,8 @@ class LoanModel {
        FROM loans l
        LEFT JOIN tenants t ON l.tenantId = t.id
        LEFT JOIN customers c ON l.customerId = c.id
-       LEFT JOIN loanType lt ON l.loanTypeId = lt.id
-       LEFT JOIN lineType lnt ON l.lineTypeId = lnt.id
+       LEFT JOIN loantype lt ON l.loanTypeId = lt.id
+       LEFT JOIN linetype lnt ON l.lineTypeId = lnt.id
        WHERE l.tenantId = ?
        ORDER BY l.createdAt DESC`,
       [tenantId]
@@ -90,8 +90,8 @@ class LoanModel {
        FROM loans l
        LEFT JOIN tenants t ON l.tenantId = t.id
        LEFT JOIN customers c ON l.customerId = c.id
-       LEFT JOIN loanType lt ON l.loanTypeId = lt.id
-       LEFT JOIN lineType lnt ON l.lineTypeId = lnt.id
+       LEFT JOIN loantype lt ON l.loanTypeId = lt.id
+       LEFT JOIN linetype lnt ON l.lineTypeId = lnt.id
        WHERE l.customerId = ?
        ORDER BY l.createdAt DESC`,
       [customerId]
@@ -114,8 +114,8 @@ class LoanModel {
        FROM loans l
        LEFT JOIN tenants t ON l.tenantId = t.id
        LEFT JOIN customers c ON l.customerId = c.id
-       LEFT JOIN loanType lt ON l.loanTypeId = lt.id
-       LEFT JOIN lineType lnt ON l.lineTypeId = lnt.id
+       LEFT JOIN loantype lt ON l.loanTypeId = lt.id
+       LEFT JOIN linetype lnt ON l.lineTypeId = lnt.id
        WHERE l.status = ?`;
     
     let params = [status];
@@ -146,8 +146,8 @@ class LoanModel {
        FROM loans l
        LEFT JOIN tenants t ON l.tenantId = t.id
        LEFT JOIN customers c ON l.customerId = c.id
-       LEFT JOIN loanType lt ON l.loanTypeId = lt.id
-       LEFT JOIN lineType lnt ON l.lineTypeId = lnt.id
+       LEFT JOIN loantype lt ON l.loanTypeId = lt.id
+       LEFT JOIN linetype lnt ON l.lineTypeId = lnt.id
        WHERE l.lineTypeId = ?`;
     
     let params = [lineTypeId];
@@ -268,10 +268,11 @@ class LoanModel {
   }
 
   // Get analytics data for date range
-  static async getAnalyticsByDateRange(fromDate, toDate, tenantId = null) {
-    let query = `SELECT 
+  static async getAnalyticsByDateRange(fromDate, toDate, tenantId = null, lineTypeId = null) {
+    // Loans-based aggregates within date range
+    let loansQuery = `SELECT 
               COUNT(*) as newLoanCount,
-              COALESCE(SUM(principal), 0) as totalInvestmentAmount,
+              COALESCE(SUM(principal), 0) as totalPrincipal,
               COALESCE(SUM(balanceAmount), 0) as totalBalanceAmountInLine,
               COALESCE(SUM(disbursedAmount), 0) as totalDisbursedAmount,
               COALESCE(SUM(initialDeduction), 0) as totalInitialDeduction,
@@ -279,15 +280,35 @@ class LoanModel {
        FROM loans
        WHERE DATE(createdAt) >= ? AND DATE(createdAt) <= ?`;
     
-    let params = [fromDate, toDate];
+    const loansParams = [fromDate, toDate];
     
     if (tenantId) {
-      query += ' AND tenantId = ?';
-      params.push(tenantId);
+      loansQuery += ' AND tenantId = ?';
+      loansParams.push(tenantId);
     }
-    
-    const [rows] = await pool.query(query, params);
-    return rows[0];
+    if (lineTypeId) {
+      loansQuery += ' AND lineTypeId = ?';
+      loansParams.push(lineTypeId);
+    }
+
+    const [loanAggRows] = await pool.query(loansQuery, loansParams);
+    const loanAgg = loanAggRows[0] || {};
+
+    // Investment aggregates from line types (not date-bound)
+    let invQuery = `SELECT COALESCE(SUM(investmentAmount), 0) as totalInvestment FROM linetype WHERE 1=1`;
+    const invParams = [];
+    if (tenantId) {
+      invQuery += ' AND tenantId = ?';
+      invParams.push(tenantId);
+    }
+    if (lineTypeId) {
+      invQuery += ' AND id = ?';
+      invParams.push(lineTypeId);
+    }
+    const [invRows] = await pool.query(invQuery, invParams);
+    const invAgg = invRows[0] || { totalInvestment: 0 };
+
+    return { ...loanAgg, ...invAgg };
   }
 }
 

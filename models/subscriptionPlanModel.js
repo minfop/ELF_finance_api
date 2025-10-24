@@ -4,7 +4,7 @@ class SubscriptionPlanModel {
   // Get all subscription plans
   static async findAll() {
     const [rows] = await pool.query(
-      'SELECT id, planName, planType, duration, price, features, isActive, createdAt FROM subscriptionPlans'
+      'SELECT id, planName, planType, duration, price, features, isActive, createdAt FROM subscriptionplans'
     );
     return rows;
   }
@@ -12,7 +12,7 @@ class SubscriptionPlanModel {
   // Get subscription plan by ID
   static async findById(id) {
     const [rows] = await pool.query(
-      'SELECT id, planName, planType, duration, price, features, isActive, createdAt FROM subscriptionPlans WHERE id = ?',
+      'SELECT id, planName, planType, duration, price, features, isActive, createdAt FROM subscriptionplans WHERE id = ?',
       [id]
     );
     return rows[0];
@@ -21,7 +21,7 @@ class SubscriptionPlanModel {
   // Get active subscription plans
   static async findActive() {
     const [rows] = await pool.query(
-      'SELECT id, planName, planType, duration, price, features, isActive, createdAt FROM subscriptionPlans WHERE isActive = 1'
+      'SELECT id, planName, planType, duration, price, features, isActive, createdAt FROM subscriptionplans WHERE isActive = 1'
     );
     return rows;
   }
@@ -30,7 +30,7 @@ class SubscriptionPlanModel {
   static async create(planData) {
     const { planName, planType, duration, price, features, isActive = 1 } = planData;
     const [result] = await pool.query(
-      'INSERT INTO subscriptionPlans (planName, planType, duration, price, features, isActive, createdAt) VALUES (?, ?, ?, ?, ?, ?, CURDATE())',
+      'INSERT INTO subscriptionplans (planName, planType, duration, price, features, isActive, createdAt) VALUES (?, ?, ?, ?, ?, ?, CURDATE())',
       [planName, planType, duration, price, features, isActive]
     );
     return result.insertId;
@@ -40,7 +40,7 @@ class SubscriptionPlanModel {
   static async update(id, planData) {
     const { planName, planType, duration, price, features, isActive } = planData;
     const [result] = await pool.query(
-      'UPDATE subscriptionPlans SET planName = ?, planType = ?, duration = ?, price = ?, features = ?, isActive = ? WHERE id = ?',
+      'UPDATE subscriptionplans SET planName = ?, planType = ?, duration = ?, price = ?, features = ?, isActive = ? WHERE id = ?',
       [planName, planType, duration, price, features, isActive, id]
     );
     return result.affectedRows;
@@ -49,7 +49,7 @@ class SubscriptionPlanModel {
   // Soft delete subscription plan
   static async softDelete(id) {
     const [result] = await pool.query(
-      'UPDATE subscriptionPlans SET isActive = 0 WHERE id = ?',
+      'UPDATE subscriptionplans SET isActive = 0 WHERE id = ?',
       [id]
     );
     return result.affectedRows;
@@ -58,7 +58,7 @@ class SubscriptionPlanModel {
   // Hard delete subscription plan
   static async delete(id) {
     const [result] = await pool.query(
-      'DELETE FROM subscriptionPlans WHERE id = ?',
+      'DELETE FROM subscriptionplans WHERE id = ?',
       [id]
     );
     return result.affectedRows;

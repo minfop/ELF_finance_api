@@ -389,6 +389,8 @@ router.get('/stats',
  *       Get comprehensive analytics data for a specified date range.
  *       
  *       **Provides:**
+ *       - Total investment (sum of linetype.investmentAmount)
+ *       - Total principal (sum of loans.principal in range)
  *       - Total disbursed amount
  *       - Total initial deduction amount
  *       - Total interest amount
@@ -398,7 +400,9 @@ router.get('/stats',
  *       
  *       **Automatically filtered by:**
  *       - tenantId (from token)
- *       - userId (from token)
+ *       
+ *       **Optionally filtered by:**
+ *       - lineTypeId (if provided as a query parameter)
  *     security:
  *       - BearerAuth: []
  *     parameters:
@@ -418,6 +422,13 @@ router.get('/stats',
  *           format: date
  *         description: End date (YYYY-MM-DD)
  *         example: "2025-10-15"
+ *       - in: query
+ *         name: lineTypeId
+ *         required: false
+ *         schema:
+ *           type: integer
+ *         description: Optional line type ID to filter analytics. If omitted, aggregates include all line types.
+ *         example: 1
  *     responses:
  *       200:
  *         description: Analytics data for the date range
@@ -443,6 +454,11 @@ router.get('/stats',
  *                           type: string
  *                           format: date
  *                           example: "2025-10-15"
+ *                         lineTypeId:
+ *                           type: integer
+ *                           nullable: true
+ *                           description: Present only when filtered by a specific line type
+ *                           example: 1
  *                     loans:
  *                       type: object
  *                       properties:
@@ -450,6 +466,16 @@ router.get('/stats',
  *                           type: integer
  *                           description: Number of loans created in the date range
  *                           example: 15
+ *                         totalInvestment:
+ *                           type: number
+ *                           format: decimal
+ *                           description: Sum of linetype.investmentAmount (scoped by tenant and optional lineTypeId)
+ *                           example: 250000.00
+ *                         totalPrincipal:
+ *                           type: number
+ *                           format: decimal
+ *                           description: Sum of loans.principal within the date range (and optional lineTypeId)
+ *                           example: 150000.00
  *                         totalDisbursedAmount:
  *                           type: number
  *                           format: decimal
@@ -465,6 +491,11 @@ router.get('/stats',
  *                           format: decimal
  *                           description: Total interest amount
  *                           example: 22500.00
+ *                         totalBalanceAmountInLine:
+ *                           type: number
+ *                           format: decimal
+ *                           description: Sum of loans.balanceAmount in the date range (and optional lineTypeId)
+ *                           example: 120000.00
  *                     customers:
  *                       type: object
  *                       properties:
@@ -490,12 +521,41 @@ router.get('/stats',
  *                           format: decimal
  *                           description: Total amount collected (cash in hand + online)
  *                           example: 75000.00
+ *                     expenses:
+ *                       type: object
+ *                       properties:
+ *                         list:
+ *                           type: array
+ *                           items:
+ *                             type: object
+ *                             properties:
+ *                               id:
+ *                                 type: integer
+ *                               expenseId:
+ *                                 type: integer
+ *                               expenseName:
+ *                                 type: string
+ *                               amount:
+ *                                 type: number
+ *                                 format: decimal
+ *                               userId:
+ *                                 type: integer
+ *                               lineTypeId:
+ *                                 type: integer
+ *                               createdAt:
+ *                                 type: string
+ *                                 format: date-time
+ *                         totalExpensesAmount:
+ *                           type: number
+ *                           format: decimal
+ *                           description: Sum of expenses.amount within the date range (and optional lineTypeId)
+ *                           example: 5000.00
  *       400:
  *         description: Invalid request (missing dates, invalid format, fromDate after toDate)
  *       401:
  *         description: Unauthorized
  *       403:
- *         description: Forbidden - Requires admin, manager, or collectioner role
+ *         description: Forbidden - Requires admin, manager role
  */
 router.get('/analytics', 
   authenticateToken, 

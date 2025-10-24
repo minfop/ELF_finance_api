@@ -4,11 +4,11 @@ class LineTypeModel {
   // Get all line types
   static async findAll() {
     const [rows] = await pool.query(
-      `SELECT lt.id, lt.name, lt.tenantId, lt.loanTypeId, lt.isActive, lt.accessUsersId, lt.createdAt,
+      `SELECT lt.id, lt.name, lt.tenantId, lt.loanTypeId, lt.investmentAmount, lt.isActive, lt.accessUsersId, lt.createdAt,
               t.name as tenantName, ltype.collectionType, ltype.collectionPeriod
-       FROM lineType lt
+       FROM linetype lt
        LEFT JOIN tenants t ON lt.tenantId = t.id
-       LEFT JOIN loanType ltype ON lt.loanTypeId = ltype.id
+       LEFT JOIN loantype ltype ON lt.loanTypeId = ltype.id
        ORDER BY lt.createdAt DESC`
     );
     return formatRowsDates(rows, [], ['createdAt']);
@@ -17,11 +17,11 @@ class LineTypeModel {
   // Get line type by ID
   static async findById(id) {
     const [rows] = await pool.query(
-      `SELECT lt.id, lt.name, lt.tenantId, lt.loanTypeId, lt.isActive, lt.accessUsersId, lt.createdAt,
+      `SELECT lt.id, lt.name, lt.tenantId, lt.loanTypeId, lt.investmentAmount, lt.isActive, lt.accessUsersId, lt.createdAt,
               t.name as tenantName, ltype.collectionType, ltype.collectionPeriod
-       FROM lineType lt
+       FROM linetype lt
        LEFT JOIN tenants t ON lt.tenantId = t.id
-       LEFT JOIN loanType ltype ON lt.loanTypeId = ltype.id
+       LEFT JOIN loantype ltype ON lt.loanTypeId = ltype.id
        WHERE lt.id = ?`,
       [id]
     );
@@ -31,11 +31,11 @@ class LineTypeModel {
   // Get line types by tenant ID
   static async findByTenantId(tenantId) {
     const [rows] = await pool.query(
-      `SELECT lt.id, lt.name, lt.tenantId, lt.loanTypeId, lt.isActive, lt.accessUsersId, lt.createdAt,
+      `SELECT lt.id, lt.name, lt.tenantId, lt.loanTypeId, lt.investmentAmount, lt.isActive, lt.accessUsersId, lt.createdAt,
               t.name as tenantName, ltype.collectionType, ltype.collectionPeriod
-       FROM lineType lt
+       FROM linetype lt
        LEFT JOIN tenants t ON lt.tenantId = t.id
-       LEFT JOIN loanType ltype ON lt.loanTypeId = ltype.id
+       LEFT JOIN loantype ltype ON lt.loanTypeId = ltype.id
        WHERE lt.tenantId = ?
        ORDER BY lt.createdAt DESC`,
       [tenantId]
@@ -46,11 +46,11 @@ class LineTypeModel {
   // Get active line types
   static async findActive() {
     const [rows] = await pool.query(
-      `SELECT lt.id, lt.name, lt.tenantId, lt.loanTypeId, lt.isActive, lt.accessUsersId, lt.createdAt,
+      `SELECT lt.id, lt.name, lt.tenantId, lt.loanTypeId, lt.investmentAmount, lt.isActive, lt.accessUsersId, lt.createdAt,
               t.name as tenantName, ltype.collectionType, ltype.collectionPeriod
-       FROM lineType lt
+       FROM linetype lt
        LEFT JOIN tenants t ON lt.tenantId = t.id
-       LEFT JOIN loanType ltype ON lt.loanTypeId = ltype.id
+       LEFT JOIN loantype ltype ON lt.loanTypeId = ltype.id
        WHERE lt.isActive = 1
        ORDER BY lt.createdAt DESC`
     );
@@ -60,11 +60,11 @@ class LineTypeModel {
   // Get active line types by tenant
   static async findActiveByTenant(tenantId) {
     const [rows] = await pool.query(
-      `SELECT lt.id, lt.name, lt.tenantId, lt.loanTypeId, lt.isActive, lt.accessUsersId, lt.createdAt,
+      `SELECT lt.id, lt.name, lt.tenantId, lt.loanTypeId, lt.investmentAmount, lt.isActive, lt.accessUsersId, lt.createdAt,
               t.name as tenantName, ltype.collectionType, ltype.collectionPeriod
-       FROM lineType lt
+       FROM linetype lt
        LEFT JOIN tenants t ON lt.tenantId = t.id
-       LEFT JOIN loanType ltype ON lt.loanTypeId = ltype.id
+       LEFT JOIN loantype ltype ON lt.loanTypeId = ltype.id
        WHERE lt.isActive = 1 AND lt.tenantId = ?
        ORDER BY lt.createdAt DESC`,
       [tenantId]
@@ -75,11 +75,11 @@ class LineTypeModel {
   // Get line types by tenant with user access (require membership; null/empty is excluded)
   static async findByTenantAndUserAccess(tenantId, userId) {
     const [rows] = await pool.query(
-      `SELECT lt.id, lt.name, lt.tenantId, lt.loanTypeId, lt.isActive, lt.accessUsersId, lt.createdAt,
+      `SELECT lt.id, lt.name, lt.tenantId, lt.loanTypeId, lt.investmentAmount, lt.isActive, lt.accessUsersId, lt.createdAt,
               t.name as tenantName, ltype.collectionType, ltype.collectionPeriod
-       FROM lineType lt
+       FROM linetype lt
        LEFT JOIN tenants t ON lt.tenantId = t.id
-       LEFT JOIN loanType ltype ON lt.loanTypeId = ltype.id
+       LEFT JOIN loantype ltype ON lt.loanTypeId = ltype.id
        WHERE lt.tenantId = ?
          AND lt.accessUsersId IS NOT NULL
          AND lt.accessUsersId <> ''
@@ -92,20 +92,20 @@ class LineTypeModel {
 
   // Create new line type
   static async create(lineTypeData) {
-    const { name, tenantId, loanTypeId, isActive = 1, accessUsersId = null } = lineTypeData;
+    const { name, tenantId, loanTypeId, investmentAmount, isActive = 1, accessUsersId = null } = lineTypeData;
     const [result] = await pool.query(
-      'INSERT INTO lineType (name, tenantId, loanTypeId, isActive, accessUsersId) VALUES (?, ?, ?, ?, ?)',
-      [name, tenantId, loanTypeId, isActive, accessUsersId]
+      'INSERT INTO linetype (name, tenantId, loanTypeId, investmentAmount, isActive, accessUsersId) VALUES (?, ?, ?, ?, ?, ?)',
+      [name, tenantId, loanTypeId, investmentAmount, isActive, accessUsersId]
     );
     return result.insertId;
   }
 
   // Update line type
   static async update(id, lineTypeData) {
-    const { name, tenantId, loanTypeId, isActive, accessUsersId } = lineTypeData;
+    const { name, tenantId, loanTypeId, investmentAmount, isActive, accessUsersId } = lineTypeData;
     const [result] = await pool.query(
-      'UPDATE lineType SET name = ?, tenantId = ?, loanTypeId = ?, isActive = ?, accessUsersId = ? WHERE id = ?',
-      [name, tenantId, loanTypeId, isActive, accessUsersId, id]
+      'UPDATE linetype SET name = ?, tenantId = ?, loanTypeId = ?, investmentAmount = ?, isActive = ?, accessUsersId = ? WHERE id = ?',
+      [name, tenantId, loanTypeId, investmentAmount, isActive, accessUsersId, id]
     );
     return result.affectedRows;
   }
@@ -113,7 +113,7 @@ class LineTypeModel {
   // Soft delete line type
   static async softDelete(id) {
     const [result] = await pool.query(
-      'UPDATE lineType SET isActive = 0 WHERE id = ?',
+      'UPDATE linetype SET isActive = 0 WHERE id = ?',
       [id]
     );
     return result.affectedRows;
@@ -122,7 +122,7 @@ class LineTypeModel {
   // Hard delete line type
   static async delete(id) {
     const [result] = await pool.query(
-      'DELETE FROM lineType WHERE id = ?',
+      'DELETE FROM linetype WHERE id = ?',
       [id]
     );
     return result.affectedRows;

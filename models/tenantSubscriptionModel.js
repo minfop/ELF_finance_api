@@ -6,9 +6,9 @@ class TenantSubscriptionModel {
     const [rows] = await pool.query(
       `SELECT ts.id, ts.tenantId, ts.subscriptionPlanId, ts.startDate, ts.endDate, ts.status,
               t.name as tenantName, sp.planName, sp.planType, sp.duration, sp.price, sp.features
-       FROM tenantSubscriptions ts
+       FROM tenantsubscriptions ts
        LEFT JOIN tenants t ON ts.tenantId = t.id
-       LEFT JOIN subscriptionPlans sp ON ts.subscriptionPlanId = sp.id`
+       LEFT JOIN subscriptionplans sp ON ts.subscriptionPlanId = sp.id`
     );
     return rows;
   }
@@ -18,9 +18,9 @@ class TenantSubscriptionModel {
     const [rows] = await pool.query(
       `SELECT ts.id, ts.tenantId, ts.subscriptionPlanId, ts.startDate, ts.endDate, ts.status,
               t.name as tenantName, sp.planName, sp.planType, sp.duration, sp.price, sp.features
-       FROM tenantSubscriptions ts
+       FROM tenantsubscriptions ts
        LEFT JOIN tenants t ON ts.tenantId = t.id
-       LEFT JOIN subscriptionPlans sp ON ts.subscriptionPlanId = sp.id
+       LEFT JOIN subscriptionplans sp ON ts.subscriptionPlanId = sp.id
        WHERE ts.id = ?`,
       [id]
     );
@@ -32,9 +32,9 @@ class TenantSubscriptionModel {
     const [rows] = await pool.query(
       `SELECT ts.id, ts.tenantId, ts.subscriptionPlanId, ts.startDate, ts.endDate, ts.status,
               t.name as tenantName, sp.planName, sp.planType, sp.duration, sp.price, sp.features
-       FROM tenantSubscriptions ts
+       FROM tenantsubscriptions ts
        LEFT JOIN tenants t ON ts.tenantId = t.id
-       LEFT JOIN subscriptionPlans sp ON ts.subscriptionPlanId = sp.id
+       LEFT JOIN subscriptionplans sp ON ts.subscriptionPlanId = sp.id
        WHERE ts.tenantId = ?`,
       [tenantId]
     );
@@ -46,9 +46,9 @@ class TenantSubscriptionModel {
     const [rows] = await pool.query(
       `SELECT ts.id, ts.tenantId, ts.subscriptionPlanId, ts.startDate, ts.endDate, ts.status,
               t.name as tenantName, sp.planName, sp.planType, sp.duration, sp.price, sp.features
-       FROM tenantSubscriptions ts
+       FROM tenantsubscriptions ts
        LEFT JOIN tenants t ON ts.tenantId = t.id
-       LEFT JOIN subscriptionPlans sp ON ts.subscriptionPlanId = sp.id
+       LEFT JOIN subscriptionplans sp ON ts.subscriptionPlanId = sp.id
        WHERE ts.status = 'ACTIVE'`
     );
     return rows;
@@ -58,7 +58,7 @@ class TenantSubscriptionModel {
   static async create(subscriptionData) {
     const { tenantId, subscriptionPlanId, startDate, endDate, status = 'ACTIVE' } = subscriptionData;
     const [result] = await pool.query(
-      'INSERT INTO tenantSubscriptions (tenantId, subscriptionPlanId, startDate, endDate, status) VALUES (?, ?, ?, ?, ?)',
+      'INSERT INTO tenantsubscriptions (tenantId, subscriptionPlanId, startDate, endDate, status) VALUES (?, ?, ?, ?, ?)',
       [tenantId, subscriptionPlanId, startDate, endDate, status]
     );
     return result.insertId;
@@ -68,7 +68,7 @@ class TenantSubscriptionModel {
   static async update(id, subscriptionData) {
     const { tenantId, subscriptionPlanId, startDate, endDate, status } = subscriptionData;
     const [result] = await pool.query(
-      'UPDATE tenantSubscriptions SET tenantId = ?, subscriptionPlanId = ?, startDate = ?, endDate = ?, status = ? WHERE id = ?',
+      'UPDATE tenantsubscriptions SET tenantId = ?, subscriptionPlanId = ?, startDate = ?, endDate = ?, status = ? WHERE id = ?',
       [tenantId, subscriptionPlanId, startDate, endDate, status, id]
     );
     return result.affectedRows;
@@ -77,7 +77,7 @@ class TenantSubscriptionModel {
   // Cancel subscription
   static async cancel(id) {
     const [result] = await pool.query(
-      'UPDATE tenantSubscriptions SET status = ? WHERE id = ?',
+      'UPDATE tenantsubscriptions SET status = ? WHERE id = ?',
       ['CANCELLED', id]
     );
     return result.affectedRows;
@@ -86,7 +86,7 @@ class TenantSubscriptionModel {
   // Expire subscription
   static async expire(id) {
     const [result] = await pool.query(
-      'UPDATE tenantSubscriptions SET status = ? WHERE id = ?',
+      'UPDATE tenantsubscriptions SET status = ? WHERE id = ?',
       ['EXPIRED', id]
     );
     return result.affectedRows;
@@ -95,7 +95,7 @@ class TenantSubscriptionModel {
   // Delete subscription
   static async delete(id) {
     const [result] = await pool.query(
-      'DELETE FROM tenantSubscriptions WHERE id = ?',
+      'DELETE FROM tenantsubscriptions WHERE id = ?',
       [id]
     );
     return result.affectedRows;

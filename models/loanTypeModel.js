@@ -7,7 +7,7 @@ class LoanTypeModel {
       `SELECT lt.id, lt.tenantId, lt.collectionType, lt.collectionPeriod, lt.interest, 
               lt.initialDeduction, lt.nilCalculation, lt.isInterestPreDetection, lt.isActive,
               t.name as tenantName
-       FROM loanType lt
+       FROM loantype lt
        LEFT JOIN tenants t ON lt.tenantId = t.id`
     );
     return rows;
@@ -19,7 +19,7 @@ class LoanTypeModel {
       `SELECT lt.id, lt.tenantId, lt.collectionType, lt.collectionPeriod, lt.interest, 
               lt.initialDeduction, lt.nilCalculation, lt.isInterestPreDetection, lt.isActive,
               t.name as tenantName
-       FROM loanType lt
+       FROM loantype lt
        LEFT JOIN tenants t ON lt.tenantId = t.id
        WHERE lt.id = ?`,
       [id]
@@ -33,7 +33,7 @@ class LoanTypeModel {
       `SELECT lt.id, lt.tenantId, lt.collectionType, lt.collectionPeriod, lt.interest, 
               lt.initialDeduction, lt.nilCalculation, lt.isInterestPreDetection, lt.isActive,
               t.name as tenantName
-       FROM loanType lt
+       FROM loantype lt
        LEFT JOIN tenants t ON lt.tenantId = t.id
        WHERE lt.tenantId = ?`,
       [tenantId]
@@ -47,7 +47,7 @@ class LoanTypeModel {
       `SELECT lt.id, lt.tenantId, lt.collectionType, lt.collectionPeriod, lt.interest, 
               lt.initialDeduction, lt.nilCalculation, lt.isInterestPreDetection, lt.isActive,
               t.name as tenantName
-       FROM loanType lt
+       FROM loantype lt
        LEFT JOIN tenants t ON lt.tenantId = t.id
        WHERE lt.isActive = 1`
     );
@@ -58,7 +58,7 @@ class LoanTypeModel {
   static async create(loanTypeData) {
     const { tenantId, collectionType, collectionPeriod, interest, initialDeduction, nilCalculation, isInterestPreDetection = 0, isActive = 1 } = loanTypeData;
     const [result] = await pool.query(
-      'INSERT INTO loanType (tenantId, collectionType, collectionPeriod, interest, initialDeduction, nilCalculation, isInterestPreDetection, isActive) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO loantype (tenantId, collectionType, collectionPeriod, interest, initialDeduction, nilCalculation, isInterestPreDetection, isActive) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
       [tenantId, collectionType, collectionPeriod, interest, initialDeduction, nilCalculation, isInterestPreDetection, isActive]
     );
     return result.insertId;
@@ -68,7 +68,7 @@ class LoanTypeModel {
   static async update(id, loanTypeData) {
     const { tenantId, collectionType, collectionPeriod, interest, initialDeduction, nilCalculation, isInterestPreDetection, isActive } = loanTypeData;
     const [result] = await pool.query(
-      'UPDATE loanType SET tenantId = ?, collectionType = ?, collectionPeriod = ?, interest = ?, initialDeduction = ?, nilCalculation = ?, isInterestPreDetection = ?, isActive = ? WHERE id = ?',
+      'UPDATE loantype SET tenantId = ?, collectionType = ?, collectionPeriod = ?, interest = ?, initialDeduction = ?, nilCalculation = ?, isInterestPreDetection = ?, isActive = ? WHERE id = ?',
       [tenantId, collectionType, collectionPeriod, interest, initialDeduction, nilCalculation, isInterestPreDetection, isActive, id]
     );
     return result.affectedRows;
@@ -77,7 +77,7 @@ class LoanTypeModel {
   // Soft delete loan type
   static async softDelete(id) {
     const [result] = await pool.query(
-      'UPDATE loanType SET isActive = 0 WHERE id = ?',
+      'UPDATE loantype SET isActive = 0 WHERE id = ?',
       [id]
     );
     return result.affectedRows;
@@ -86,7 +86,7 @@ class LoanTypeModel {
   // Hard delete loan type
   static async delete(id) {
     const [result] = await pool.query(
-      'DELETE FROM loanType WHERE id = ?',
+      'DELETE FROM loantype WHERE id = ?',
       [id]
     );
     return result.affectedRows;

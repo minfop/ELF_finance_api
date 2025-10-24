@@ -1,5 +1,5 @@
--- Create loanType table
-CREATE TABLE IF NOT EXISTS loanType (
+-- Create loantype table
+CREATE TABLE IF NOT EXISTS loantype (
   id INT AUTO_INCREMENT PRIMARY KEY,
   tenantId INT NOT NULL,
   collectionType VARCHAR(50) NOT NULL,
@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS loanType (
 );
 
 -- Insert sample loan types
-INSERT INTO loanType (tenantId, collectionType, collectionPeriod, interest, initialDeduction, nilCalculation, isInterestPreDetection, isActive) VALUES
+INSERT INTO loantype (tenantId, collectionType, collectionPeriod, interest, initialDeduction, nilCalculation, isInterestPreDetection, isActive) VALUES
   (1, 'Daily', 1, 10, 5, 2, 1, 1),
   (1, 'Weekly', 7, 15, 10, 3, 0, 1),
   (1, 'Monthly', 30, 20, 15, 5, 1, 1),
@@ -24,5 +24,5 @@ INSERT INTO loanType (tenantId, collectionType, collectionPeriod, interest, init
   (3, 'Monthly', 30, 25, 20, 5, 1, 1);
 
 -- Display loan types
-SELECT * FROM loanType;
+SELECT * FROM loantype;
 

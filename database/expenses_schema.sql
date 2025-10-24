@@ -9,8 +9,8 @@ CREATE TABLE IF NOT EXISTS expenses (
   createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (tenantId) REFERENCES tenants(id),
   FOREIGN KEY (userId) REFERENCES users(id),
-  FOREIGN KEY (expenseId) REFERENCES expensesType(id),
-  FOREIGN KEY (lineTypeId) REFERENCES lineType(id),
+  FOREIGN KEY (expenseId) REFERENCES expensestype(id),
+  FOREIGN KEY (lineTypeId) REFERENCES linetype(id),
   INDEX idx_tenant_id (tenantId),
   INDEX idx_user_id (userId),
   INDEX idx_line_type_id (lineTypeId)

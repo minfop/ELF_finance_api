@@ -116,10 +116,10 @@ class LoanController {
   // Get analytics data by date range
   async getDateRangeAnalytics(req, res) {
     try {
-      const { fromDate, toDate } = req.query;
+      const { fromDate, toDate, lineTypeId } = req.query;
       const { userId, tenantId } = req.user;
       
-      const result = await loanService.getDateRangeAnalytics(fromDate, toDate, userId, tenantId);
+      const result = await loanService.getDateRangeAnalytics(fromDate, toDate, userId, tenantId, lineTypeId);
       
       if (!result.success) {
         return res.status(400).json(result);

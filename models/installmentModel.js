@@ -285,19 +285,24 @@ class InstallmentModel {
   }
 
   // Get total collected amount by date range
-  static async getTotalCollectedByDateRange(fromDate, toDate, tenantId = null) {
+  static async getTotalCollectedByDateRange(fromDate, toDate, tenantId = null, lineTypeId = null) {
     let query = `SELECT 
-              COALESCE(SUM(cashInHand), 0) as totalCashInHand,
-              COALESCE(SUM(cashInOnline), 0) as totalCashInOnline,
-              COALESCE(SUM(cashInHand + cashInOnline), 0) as totalCollected
-       FROM installments
-       WHERE DATE(dueAt) >= ? AND DATE(dueAt) <= ?`;
+              COALESCE(SUM(i.cashInHand), 0) as totalCashInHand,
+              COALESCE(SUM(i.cashInOnline), 0) as totalCashInOnline,
+              COALESCE(SUM(i.cashInHand + i.cashInOnline), 0) as totalCollected
+       FROM installments i
+       LEFT JOIN loans l ON i.loanId = l.id
+       WHERE DATE(i.dueAt) >= ? AND DATE(i.dueAt) <= ?`;
     
     let params = [fromDate, toDate];
     
     if (tenantId) {
-      query += ' AND tenantId = ?';
+      query += ' AND i.tenantId = ?';
       params.push(tenantId);
+    }
+    if (lineTypeId) {
+      query += ' AND l.lineTypeId = ?';
+      params.push(lineTypeId);
     }
     
     const [rows] = await pool.query(query, params);

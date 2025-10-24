@@ -7,9 +7,9 @@ class ExpensesModel {
               et.name as expenseName, et.maxLimit, et.accessUsersId,
               u.name as userName, lt.name as lineTypeName
        FROM expenses e
-       LEFT JOIN expensesType et ON e.expenseId = et.id
+       LEFT JOIN expensestype et ON e.expenseId = et.id
        LEFT JOIN users u ON e.userId = u.id
-       LEFT JOIN lineType lt ON e.lineTypeId = lt.id
+       LEFT JOIN linetype lt ON e.lineTypeId = lt.id
        ORDER BY e.createdAt DESC`
     );
     return rows;
@@ -21,9 +21,9 @@ class ExpensesModel {
               et.name as expenseName, et.maxLimit, et.accessUsersId,
               u.name as userName, lt.name as lineTypeName
        FROM expenses e
-       LEFT JOIN expensesType et ON e.expenseId = et.id
+       LEFT JOIN expensestype et ON e.expenseId = et.id
        LEFT JOIN users u ON e.userId = u.id
-       LEFT JOIN lineType lt ON e.lineTypeId = lt.id
+       LEFT JOIN linetype lt ON e.lineTypeId = lt.id
        WHERE e.id = ?`,
       [id]
     );
@@ -36,9 +36,9 @@ class ExpensesModel {
               et.name as expenseName, et.maxLimit, et.accessUsersId,
               u.name as userName, lt.name as lineTypeName
        FROM expenses e
-       LEFT JOIN expensesType et ON e.expenseId = et.id
+       LEFT JOIN expensestype et ON e.expenseId = et.id
        LEFT JOIN users u ON e.userId = u.id
-       LEFT JOIN lineType lt ON e.lineTypeId = lt.id
+       LEFT JOIN linetype lt ON e.lineTypeId = lt.id
        WHERE e.tenantId = ?
        ORDER BY e.createdAt DESC`,
       [tenantId]
@@ -46,26 +46,30 @@ class ExpensesModel {
     return rows;
   }
 
-  static async getListByDateRange(fromDate, toDate, tenantId = null) {
+  static async getListByDateRange(fromDate, toDate, tenantId = null, lineTypeId = null) {
     const params = [fromDate, toDate];
     let query = `SELECT e.id, e.expenseId, e.userId, e.tenantId, e.lineTypeId, e.amount, e.isActive, e.createdAt,
                         et.name as expenseName, et.maxLimit, et.accessUsersId,
                         u.name as userName, lt.name as lineTypeName
                  FROM expenses e
-                 LEFT JOIN expensesType et ON e.expenseId = et.id
+                 LEFT JOIN expensestype et ON e.expenseId = et.id
                  LEFT JOIN users u ON e.userId = u.id
-                 LEFT JOIN lineType lt ON e.lineTypeId = lt.id
+                 LEFT JOIN linetype lt ON e.lineTypeId = lt.id
                  WHERE DATE(e.createdAt) >= ? AND DATE(e.createdAt) <= ?`;
     if (tenantId) {
       query += ' AND e.tenantId = ?';
       params.push(tenantId);
+    }
+    if (lineTypeId) {
+      query += ' AND e.lineTypeId = ?';
+      params.push(lineTypeId);
     }
     query += ' ORDER BY e.createdAt DESC';
     const [rows] = await pool.query(query, params);
     return rows;
   }
 
-  static async getTotalByDateRange(fromDate, toDate, tenantId = null) {
+  static async getTotalByDateRange(fromDate, toDate, tenantId = null, lineTypeId = null) {
     const params = [fromDate, toDate];
     let query = `SELECT COALESCE(SUM(e.amount), 0) as totalExpensesAmount
                  FROM expenses e
@@ -73,6 +77,10 @@ class ExpensesModel {
     if (tenantId) {
       query += ' AND e.tenantId = ?';
       params.push(tenantId);
+    }
+    if (lineTypeId) {
+      query += ' AND e.lineTypeId = ?';
+      params.push(lineTypeId);
     }
     const [rows] = await pool.query(query, params);
     return rows[0];

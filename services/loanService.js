@@ -310,7 +310,7 @@ class LoanService {
   }
 
   // Get analytics data by date range
-  async getDateRangeAnalytics(fromDate, toDate, userId, userTenantId) {
+  async getDateRangeAnalytics(fromDate, toDate, userId, userTenantId, lineTypeId = null) {
     try {
       // Validate required fields
       if (!fromDate || !toDate) {
@@ -344,27 +344,43 @@ class LoanService {
         };
       }
 
+      // Optional lineTypeId validation: ensure it belongs to tenant if provided
+      let validatedLineTypeId = null;
+      if (lineTypeId) {
+        const numericLineTypeId = parseInt(lineTypeId);
+        if (Number.isNaN(numericLineTypeId)) {
+          return { success: false, message: 'lineTypeId must be a number' };
+        }
+        const lineType = await LineTypeModel.findById(numericLineTypeId);
+        if (!lineType || lineType.tenantId !== userTenantId) {
+          return { success: false, message: 'Invalid lineTypeId for this tenant' };
+        }
+        validatedLineTypeId = numericLineTypeId;
+      }
+
       // Fetch all analytics data in parallel
       const [loanAnalytics, customerAnalytics, installmentAnalytics, expensesList, expensesTotal] = await Promise.all([
-        LoanModel.getAnalyticsByDateRange(fromDate, toDate, userTenantId),
+        LoanModel.getAnalyticsByDateRange(fromDate, toDate, userTenantId, validatedLineTypeId),
         CustomerModel.getNewCustomersCountByDateRange(fromDate, toDate, userTenantId),
-        InstallmentModel.getTotalCollectedByDateRange(fromDate, toDate, userTenantId),
-        require('../models/expensesModel').getListByDateRange(fromDate, toDate, userTenantId),
-        require('../models/expensesModel').getTotalByDateRange(fromDate, toDate, userTenantId)
+        InstallmentModel.getTotalCollectedByDateRange(fromDate, toDate, userTenantId, validatedLineTypeId),
+        require('../models/expensesModel').getListByDateRange(fromDate, toDate, userTenantId, validatedLineTypeId),
+        require('../models/expensesModel').getTotalByDateRange(fromDate, toDate, userTenantId, validatedLineTypeId)
       ]);
 
       // Combine all analytics data
       const analytics = {
         dateRange: {
           fromDate,
-          toDate
+          toDate,
+          lineTypeId: validatedLineTypeId || undefined
         },
         loans: {
           newLoanCount: loanAnalytics.newLoanCount || 0,
+          totalInvestment: parseFloat(loanAnalytics.totalInvestmentAmount) || 0,
+          totalPrincipal: parseFloat(loanAnalytics.totalPrincipal) || 0,
           totalDisbursedAmount: parseFloat(loanAnalytics.totalDisbursedAmount) || 0,
           totalInitialDeduction: parseFloat(loanAnalytics.totalInitialDeduction) || 0,
           totalInterest: parseFloat(loanAnalytics.totalInterest) || 0,
-          totalInvestmentAmount: parseFloat(loanAnalytics.totalInvestmentAmount) || 0,
           totalBalanceAmountInLine: parseFloat(loanAnalytics.totalBalanceAmountInLine) || 0
         },
         customers: {

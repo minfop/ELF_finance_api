@@ -5,7 +5,7 @@ class ExpensesTypeModel {
     const [rows] = await pool.query(
       `SELECT et.id, et.name, et.maxLimit, et.tenantId, et.isActive, et.createdAt, et.accessUsersId,
               t.name as tenantName
-       FROM expensesType et
+       FROM expensestype et
        LEFT JOIN tenants t ON et.tenantId = t.id
        ORDER BY et.createdAt DESC`
     );
@@ -16,7 +16,7 @@ class ExpensesTypeModel {
     const [rows] = await pool.query(
       `SELECT et.id, et.name, et.maxLimit, et.tenantId, et.isActive, et.createdAt, et.accessUsersId,
               t.name as tenantName
-       FROM expensesType et
+       FROM expensestype et
        LEFT JOIN tenants t ON et.tenantId = t.id
        WHERE et.id = ?`,
       [id]
@@ -28,7 +28,7 @@ class ExpensesTypeModel {
     const [rows] = await pool.query(
       `SELECT et.id, et.name, et.maxLimit, et.tenantId, et.isActive, et.createdAt, et.accessUsersId,
               t.name as tenantName
-       FROM expensesType et
+       FROM expensestype et
        LEFT JOIN tenants t ON et.tenantId = t.id
        WHERE et.tenantId = ?
        ORDER BY et.createdAt DESC`,
@@ -41,7 +41,7 @@ class ExpensesTypeModel {
     const [rows] = await pool.query(
       `SELECT et.id, et.name, et.maxLimit, et.tenantId, et.isActive, et.createdAt, et.accessUsersId,
               t.name as tenantName
-       FROM expensesType et
+       FROM expensestype et
        LEFT JOIN tenants t ON et.tenantId = t.id
        WHERE et.tenantId = ?
          AND et.accessUsersId IS NOT NULL
@@ -58,7 +58,7 @@ class ExpensesTypeModel {
     const [rows] = await pool.query(
       `SELECT et.id, et.name, et.maxLimit, et.tenantId, et.isActive, et.createdAt, et.accessUsersId,
               t.name as tenantName
-       FROM expensesType et
+       FROM expensestype et
        LEFT JOIN tenants t ON et.tenantId = t.id
        WHERE et.tenantId = ?
          AND et.accessUsersId IS NOT NULL
@@ -73,7 +73,7 @@ class ExpensesTypeModel {
   static async create(data) {
     const { name, maxLimit = null, tenantId, isActive = 1, accessUsersId = null } = data;
     const [result] = await pool.query(
-      'INSERT INTO expensesType (name, maxLimit, tenantId, isActive, accessUsersId) VALUES (?, ?, ?, ?, ?)',
+      'INSERT INTO expensestype (name, maxLimit, tenantId, isActive, accessUsersId) VALUES (?, ?, ?, ?, ?)',
       [name, maxLimit, tenantId, isActive, accessUsersId]
     );
     return result.insertId;
@@ -82,24 +82,24 @@ class ExpensesTypeModel {
   static async update(id, data) {
     const { name, maxLimit = null, tenantId, isActive, accessUsersId } = data;
     const [result] = await pool.query(
-      'UPDATE expensesType SET name = ?, maxLimit = ?, tenantId = ?, isActive = ?, accessUsersId = ? WHERE id = ?',
+      'UPDATE expensestype SET name = ?, maxLimit = ?, tenantId = ?, isActive = ?, accessUsersId = ? WHERE id = ?',
       [name, maxLimit, tenantId, isActive, accessUsersId, id]
     );
     return result.affectedRows;
   }
 
   static async activate(id) {
-    const [result] = await pool.query('UPDATE expensesType SET isActive = 1 WHERE id = ?', [id]);
+    const [result] = await pool.query('UPDATE expensestype SET isActive = 1 WHERE id = ?', [id]);
     return result.affectedRows;
   }
 
   static async deactivate(id) {
-    const [result] = await pool.query('UPDATE expensesType SET isActive = 0 WHERE id = ?', [id]);
+    const [result] = await pool.query('UPDATE expensestype SET isActive = 0 WHERE id = ?', [id]);
     return result.affectedRows;
   }
 
   static async delete(id) {
-    const [result] = await pool.query('DELETE FROM expensesType WHERE id = ?', [id]);
+    const [result] = await pool.query('DELETE FROM expensestype WHERE id = ?', [id]);
     return result.affectedRows;
   }
 }

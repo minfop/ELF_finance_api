@@ -117,6 +117,24 @@ class LineTypeService {
         };
       }
 
+      // Validate investmentAmount
+      if (lineTypeData.investmentAmount === undefined || lineTypeData.investmentAmount === null) {
+        return {
+          success: false,
+          message: 'investmentAmount is required'
+        };
+      }
+      const parsedInvestment = parseFloat(lineTypeData.investmentAmount);
+      if (Number.isNaN(parsedInvestment) || parsedInvestment < 0) {
+        return {
+          success: false,
+          message: 'investmentAmount must be a non-negative number'
+        };
+      }
+
+      // Normalize to 2 decimals as string/number consistent with DB DECIMAL(15,2)
+      lineTypeData.investmentAmount = parsedInvestment.toFixed(2);
+
       const lineTypeId = await LineTypeModel.create(lineTypeData);
       const newLineType = await LineTypeModel.findById(lineTypeId);
 
@@ -152,6 +170,21 @@ class LineTypeService {
 
       // Preserve the original tenantId (prevent changing tenant)
       lineTypeData.tenantId = existingLineType.tenantId;
+
+      // Validate investmentAmount if provided
+      if (lineTypeData.investmentAmount !== undefined) {
+        const parsedInvestment = parseFloat(lineTypeData.investmentAmount);
+        if (Number.isNaN(parsedInvestment) || parsedInvestment < 0) {
+          return {
+            success: false,
+            message: 'investmentAmount must be a non-negative number'
+          };
+        }
+        lineTypeData.investmentAmount = parsedInvestment.toFixed(2);
+      } else {
+        // Ensure update preserves existing value when not provided
+        lineTypeData.investmentAmount = existingLineType.investmentAmount;
+      }
 
       const affectedRows = await LineTypeModel.update(id, lineTypeData);
       
