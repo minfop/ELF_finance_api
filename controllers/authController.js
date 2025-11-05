@@ -24,6 +24,42 @@ class AuthController {
   }
 
   /**
+   * Request OTP endpoint
+   * POST /api/auth/otp/request
+   */
+  async requestOtp(req, res) {
+    try {
+      const { phoneNumber } = req.body;
+      const result = await authService.requestOtp(phoneNumber);
+      const status = result.success ? 200 : 400;
+      res.status(status).json(result);
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: error.message
+      });
+    }
+  }
+
+  /**
+   * Verify OTP endpoint
+   * POST /api/auth/otp/verify
+   */
+  async verifyOtp(req, res) {
+    try {
+      const { phoneNumber, otp } = req.body;
+      const result = await authService.verifyOtp(phoneNumber, otp);
+      const status = result.success ? 200 : 401;
+      res.status(status).json(result);
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: error.message
+      });
+    }
+  }
+
+  /**
    * Refresh token endpoint
    * POST /api/auth/refresh
    */

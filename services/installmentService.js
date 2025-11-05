@@ -704,16 +704,27 @@ class InstallmentService {
         return { success: true, data: { collectionType: 'DAILY', periods: result } };
       } else if (collectionType === 'WEEKLY') {
         series = await InstallmentModel.getWeeklyTotalsByLineTypeForLastNWeeks(lineTypeId, userTenantId, 7);
-        // Expect ascending oldest->newest; format label as weekStart..weekEnd
-        const result = series.map(r => ({
-          label: `${r.weekStart}..${r.weekEnd}`,
-          total: parseFloat(r.totalCollected) || 0
-        }));
+        // Short label: YYYY-WW from YEARWEEK value
+        const result = series.map(r => {
+          const ywRaw = r.yearWeek !== undefined && r.yearWeek !== null ? parseInt(r.yearWeek) : NaN;
+          let label;
+          if (!Number.isNaN(ywRaw)) {
+            const year = Math.floor(ywRaw / 100);
+            const week = String(ywRaw % 100).padStart(2, '0');
+            label = `${year}-W${week}`;
+          } else {
+            label = (r.weekStart || '').slice(0, 10);
+          }
+          return {
+            label,
+            total: parseFloat(r.totalCollected) || 0
+          };
+        });
         return { success: true, data: { collectionType: 'WEEKLY', periods: result } };
       } else if (collectionType === 'MONTHLY') {
         series = await InstallmentModel.getMonthlyTotalsByLineTypeForLastNMonths(lineTypeId, userTenantId, 7);
         const result = series.map(r => ({
-          label: r.monthStart,
+          label: (r.monthStart || '').slice(0, 7),
           total: parseFloat(r.totalCollected) || 0
         }));
         return { success: true, data: { collectionType: 'MONTHLY', periods: result } };

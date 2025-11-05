@@ -157,6 +157,86 @@ router.post('/login', authController.login.bind(authController));
 
 /**
  * @swagger
+ * components:
+ *   schemas:
+ *     OtpRequest:
+ *       type: object
+ *       required:
+ *         - phoneNumber
+ *       properties:
+ *         phoneNumber:
+ *           type: string
+ *           description: User phone number
+ *       example:
+ *         phoneNumber: "+919677669080"
+ *     OtpVerifyRequest:
+ *       type: object
+ *       required:
+ *         - phoneNumber
+ *         - otp
+ *       properties:
+ *         phoneNumber:
+ *           type: string
+ *         otp:
+ *           type: string
+ *           description: 6-digit OTP code
+ *       example:
+ *         phoneNumber: "+919677669080"
+ *         otp: "123456"
+ */
+
+/**
+ * @swagger
+ * /api/auth/otp/request:
+ *   post:
+ *     summary: Request OTP code
+ *     tags: [Authentication]
+ *     description: Sends a one-time code to the provided phone number if it exists
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/OtpRequest'
+ *     responses:
+ *       200:
+ *         description: OTP was sent (or a generic response to avoid enumeration)
+ *       400:
+ *         description: Validation error
+ *       500:
+ *         description: Server error
+ */
+router.post('/otp/request', authController.requestOtp.bind(authController));
+
+/**
+ * @swagger
+ * /api/auth/otp/verify:
+ *   post:
+ *     summary: Verify OTP and login
+ *     tags: [Authentication]
+ *     description: Verifies the received OTP and returns JWT tokens on success
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/OtpVerifyRequest'
+ *     responses:
+ *       200:
+ *         description: Login successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/LoginResponse'
+ *       401:
+ *         description: Invalid or expired OTP
+ *       500:
+ *         description: Server error
+ */
+router.post('/otp/verify', authController.verifyOtp.bind(authController));
+
+/**
+ * @swagger
  * /api/auth/refresh:
  *   post:
  *     summary: Refresh access token

@@ -14,6 +14,20 @@ class UserModel {
     return rows;
   }
 
+  // Get user by phone number (without password)
+  static async findByPhoneNumber(phoneNumber) {
+    const [rows] = await pool.query(
+      `SELECT u.id, u.tenantId, u.name, u.roleId, u.phoneNumber, u.email, u.isActive,
+              t.name as tenantName, r.role as roleName
+       FROM users u
+       LEFT JOIN tenants t ON u.tenantId = t.id
+       LEFT JOIN roles r ON u.roleId = r.id
+       WHERE u.phoneNumber = ?`,
+      [phoneNumber]
+    );
+    return rows[0];
+  }
+
   // Get user by ID
   static async findById(id) {
     const [rows] = await pool.query(

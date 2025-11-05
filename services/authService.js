@@ -1,6 +1,9 @@
 const UserModel = require('../models/userModel');
 const AuthModel = require('../models/authModel');
+const OtpModel = require('../models/otpModel');
 const JWTUtils = require('../utils/jwtUtils');
+const OtpUtils = require('../utils/otpUtils');
+const SmsService = require('../utils/smsService');
 
 class AuthService {
   /**
@@ -86,6 +89,129 @@ class AuthService {
       };
     } catch (error) {
       throw new Error(`Error during login: ${error.message}`);
+    }
+  }
+
+  /**
+   * Request OTP for phoneNumber
+   * @param {String} phoneNumber
+   */
+  async requestOtp(phoneNumber) {
+    try {
+      if (!phoneNumber) {
+        return { success: false, message: 'phoneNumber is required' };
+      }
+
+      const user = await UserModel.findByPhoneNumber(phoneNumber);
+      if (!user) {
+        // Avoid user enumeration
+        return { success: true, message: 'If the number exists, an OTP has been sent' };
+      }
+
+      if (!user.isActive) {
+        return { success: false, message: 'Account is deactivated. Please contact administrator.' };
+      }
+
+      const otpLength = parseInt(process.env.OTP_LENGTH || '6', 10);
+      const otpTtlMin = parseInt(process.env.OTP_EXP_MINUTES || '5', 10);
+      const channel = process.env.OTP_CHANNEL || 'sms';
+
+      const otp = OtpUtils.generateNumericOtp(otpLength);
+      const otpHash = await OtpUtils.hashOtp(otp);
+      const expiresAt = OtpUtils.getExpiryDate(otpTtlMin);
+
+      await OtpModel.upsertActiveOtpForUser(user.id, otpHash, expiresAt, channel);
+
+      const delivery = process.env.OTP_DELIVERY || 'console';
+      if (delivery === 'console') {
+        console.log(`[OTP] Sending OTP to ${phoneNumber}: ${otp} (expires in ${otpTtlMin} min)`);
+      } else if (delivery === 'sms') {
+        try {
+          const message = `Your verification code is ${otp}. It expires in ${otpTtlMin} minutes.`;
+          await SmsService.sendSms(phoneNumber, message);
+        } catch (e) {
+          console.error('Failed to send OTP via SMS:', e.message);
+          return { success: false, message: `Failed to send OTP: ${e.message}` };
+        }
+      }
+
+      return { success: true, message: 'OTP sent successfully' };
+    } catch (error) {
+      throw new Error(`Error requesting OTP: ${error.message}`);
+    }
+  }
+
+  /**
+   * Verify OTP and login
+   * @param {String} phoneNumber
+   * @param {String} otp
+   */
+  async verifyOtp(phoneNumber, otp) {
+    try {
+      if (!phoneNumber || !otp) {
+        return { success: false, message: 'phoneNumber and otp are required' };
+      }
+
+      const user = await UserModel.findByPhoneNumber(phoneNumber);
+      if (!user) {
+        return { success: false, message: 'Invalid OTP or phone number' };
+      }
+
+      if (!user.isActive) {
+        return { success: false, message: 'Account is deactivated. Please contact administrator.' };
+      }
+
+      const record = await OtpModel.findActiveOtpForUser(user.id);
+      if (!record) {
+        return { success: false, message: 'OTP expired or not found' };
+      }
+
+      const maxAttempts = parseInt(process.env.OTP_MAX_ATTEMPTS || '5', 10);
+
+      const isValid = await OtpUtils.compareOtp(otp, record.otpHash);
+      if (!isValid) {
+        await OtpModel.incrementAttempts(record.id);
+        if ((record.attempts + 1) >= maxAttempts) {
+          await OtpModel.markUsed(record.id);
+          return { success: false, message: 'Too many attempts. Request a new OTP.' };
+        }
+        return { success: false, message: 'Invalid OTP' };
+      }
+
+      // Mark OTP as used
+      await OtpModel.markUsed(record.id);
+
+      const tokenPayload = {
+        userId: user.id,
+        tenantId: user.tenantId,
+        roleId: user.roleId,
+        roleName: user.roleName || null,
+        name: user.name,
+        email: user.email,
+        phoneNumber: user.phoneNumber
+      };
+
+      const tokens = JWTUtils.generateTokenPair(tokenPayload);
+
+      return {
+        success: true,
+        message: 'Login successful',
+        data: {
+          user: {
+            id: user.id,
+            tenantId: user.tenantId,
+            name: user.name,
+            roleId: user.roleId,
+            email: user.email,
+            phoneNumber: user.phoneNumber,
+            tenantName: user.tenantName,
+            roleName: user.roleName
+          },
+          tokens
+        }
+      };
+    } catch (error) {
+      throw new Error(`Error verifying OTP: ${error.message}`);
     }
   }
 
