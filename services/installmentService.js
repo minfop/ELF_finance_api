@@ -268,9 +268,12 @@ class InstallmentService {
 
       // Update loan's balanceAmount: totalAmount - total of all installments paid
       const newBalanceAmount = parseFloat(loan.totalAmount) - totalInstallmentsPaid;
+      const normalizedBalance = newBalanceAmount > 0 ? newBalanceAmount : 0;
+      const newStatus = normalizedBalance === 0 ? 'COMPLETED' : loan.status;
       await LoanModel.update(loan.id, {
         ...loan,
-        balanceAmount: newBalanceAmount > 0 ? newBalanceAmount : 0
+        balanceAmount: normalizedBalance,
+        status: newStatus
       });
 
       // Build complete installment data
@@ -346,6 +349,24 @@ class InstallmentService {
         };
       }
 
+      // Recalculate loan balance after update and complete if zero
+      const loan = await LoanModel.findById(existingInstallment.loanId);
+      if (loan) {
+        const allInstallments = await InstallmentModel.findByLoanId(loan.id);
+        const totalInstallmentsPaid = allInstallments.reduce((sum, inst) => {
+          const paid = parseFloat(inst.cashInHand || 0) + parseFloat(inst.cashInOnline || 0);
+          return sum + paid;
+        }, 0);
+        const newBalanceAmount = parseFloat(loan.totalAmount) - totalInstallmentsPaid;
+        const normalizedBalance = newBalanceAmount > 0 ? newBalanceAmount : 0;
+        const newStatus = normalizedBalance === 0 ? 'COMPLETED' : loan.status;
+        await LoanModel.update(loan.id, {
+          ...loan,
+          balanceAmount: normalizedBalance,
+          status: newStatus
+        });
+      }
+
       const updatedInstallment = await InstallmentModel.findById(id);
 
       return {
@@ -402,10 +423,12 @@ class InstallmentService {
         // Add current payment
         const currentPayment = parseFloat(cashInHand) + parseFloat(cashInOnline);
         const newBalanceAmount = parseFloat(loan.totalAmount) - (totalInstallmentsPaid + currentPayment);
-        
+        const normalizedBalance = newBalanceAmount > 0 ? newBalanceAmount : 0;
+        const newStatus = normalizedBalance === 0 ? 'COMPLETED' : loan.status;
         await LoanModel.update(loan.id, {
           ...loan,
-          balanceAmount: newBalanceAmount > 0 ? newBalanceAmount : 0
+          balanceAmount: normalizedBalance,
+          status: newStatus
         });
       }
 
@@ -469,10 +492,12 @@ class InstallmentService {
         // Add current payment
         const currentPayment = parseFloat(cashInHand) + parseFloat(cashInOnline);
         const newBalanceAmount = parseFloat(loan.totalAmount) - (totalInstallmentsPaid + currentPayment);
-        
+        const normalizedBalance = newBalanceAmount > 0 ? newBalanceAmount : 0;
+        const newStatus = normalizedBalance === 0 ? 'COMPLETED' : loan.status;
         await LoanModel.update(loan.id, {
           ...loan,
-          balanceAmount: newBalanceAmount > 0 ? newBalanceAmount : 0
+          balanceAmount: normalizedBalance,
+          status: newStatus
         });
       }
 
